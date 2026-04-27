@@ -75,7 +75,7 @@ function AuthScreen({ onAuth }) {
           </TouchableOpacity>
         </View>
 
-        <Text style={authStyles.cardHeading}>{mode === 'login' ? 'Welcome back' : 'Join ColdSync'}</Text>
+        <Text style={authStyles.cardHeading}>{mode === 'login' ? 'Welcome' : 'Join ColdSync'}</Text>
         <Text style={authStyles.cardSub}>{mode === 'login' ? 'Sign in to monitor your cold chain in real-time.' : 'Create your operator account to get started.'}</Text>
 
         {mode === 'signup' && (
@@ -142,6 +142,7 @@ function AuthScreen({ onAuth }) {
 }
 
 // --- MISSION PAGE ---
+
 function MissionScreen() {
   return (
     <View style={styles.container}>
@@ -150,57 +151,107 @@ function MissionScreen() {
         <View style={styles.rvBadge}><Text style={styles.rvText}>RVCE INNOVATION</Text></View>
       </View>
       <ScrollView contentContainerStyle={styles.scrollArea}>
+
+        {/* HERO */}
         <View style={styles.welcomeHeader}>
-          <Text style={styles.grandWelcomeText}>ABOUT</Text>
-          <Text style={styles.brandTitleText}>COLDSYNC</Text>
+          <Text style={styles.grandWelcomeText}>ABOUT COLDSYNC</Text>
+          <Text style={[styles.brandTitleText, {fontSize: 38, lineHeight: 44}]}>
+            Keeping{"\n"}<Text style={{color: '#00FFAD'}}>life-saving</Text>{"\n"}medicines cold.
+          </Text>
           <View style={styles.accentLine} />
-          <Text style={styles.heroSubtitle}>Ensuring safe delivery of life-saving medicines through real-time monitoring.</Text>
-        </View>
-
-        <View style={styles.missionDarkCard}>
-          <Text style={styles.hubGreeting}>Our Mission</Text>
-          <Text style={styles.aboutText}>
-            ColdSync is dedicated to redefining the reliability of healthcare logistics by ensuring that temperature-sensitive medical supplies are transported with absolute precision, accountability, and consistency. Across many regions, especially in developing and rural areas, the cold chain remains one of the weakest links in healthcare delivery, where even minor temperature deviations can render vaccines and biologics ineffective. ColdSync addresses this critical gap by integrating real-time telemetry, intelligent monitoring systems, and adaptive response mechanisms into every stage of the supply chain. By continuously tracking environmental conditions and system performance, we aim to eliminate uncertainty and provide a level of visibility that has traditionally been absent in cold-chain infrastructure.
-
-            {"\n\n"}
-
-            Our mission is not only to monitor but to actively safeguard the integrity of every shipment through proactive intervention and data-driven decision-making. Instead of relying on delayed or periodic checks, ColdSync establishes a continuously aware system that detects anomalies, predicts potential failures, and initiates corrective actions before damage occurs. This shift from reactive to predictive logistics significantly reduces wastage, minimizes financial losses, and enhances operational efficiency across the healthcare ecosystem. More importantly, it builds confidence among healthcare providers, distributors, and patients by ensuring that every dose delivered retains its intended efficacy, regardless of the challenges encountered during transit.
-
-            {"\n\n"}
-
-            We envision a future where geography, infrastructure limitations, or logistical complexity no longer determine the quality of healthcare delivery. Through scalable, intelligent, and cost-effective solutions, ColdSync bridges the gap between advanced medical systems and underserved communities, enabling equitable access to safe and reliable treatments. Beyond temperature monitoring, we are building a comprehensive ecosystem that emphasizes transparency, traceability, and trust at every level of the supply chain. In doing so, ColdSync is not just optimizing logistics — it is strengthening the foundation of global healthcare by ensuring that life-saving resources reach those who need them most, exactly as intended.
+          <Text style={styles.heroSubtitle}>
+            An IoT-powered cold chain intelligence platform that monitors vaccines and biologics in real-time — from warehouse to last-mile delivery.
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>The Challenge</Text>
+        {/* THE PROBLEM */}
+        <Text style={styles.sectionTitle}>The Problem We Solve</Text>
+        <View style={[styles.missionDarkCard, {borderColor: '#FF6B6B30', marginBottom: 8}]}>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10}}>
+            <MaterialCommunityIcons name="alert-octagram" size={18} color="#FF6B6B" />
+            <Text style={{color: '#FF6B6B', fontSize: 11, fontWeight: '800', letterSpacing: 1}}>COLD CHAIN FAILURE IS A GLOBAL HEALTHCARE CRISIS</Text>
+          </View>
+          <Text style={styles.aboutText}>
+            Every year, <Text style={{color:'#FFF', fontWeight:'700'}}>up to 50% of all vaccines are wasted globally</Text> — not due to disease, but due to temperature excursions during storage and transit. In India alone, cold chain failures cost the healthcare system <Text style={{color:'#FFF', fontWeight:'700'}}>billions of rupees annually</Text>, silently undermining immunization programs.{"\n\n"}
+            The root cause: <Text style={{color:'#FFF', fontWeight:'700'}}>no real-time visibility</Text>. Shipments travel blind. By the time a breach is detected, damage is already done.
+          </Text>
+        </View>
         <View style={styles.challengeRow}>
-            <View style={styles.challengeCard}>
-                <MaterialCommunityIcons name="alert-octagram" size={24} color="#FF4D4D" />
-                <Text style={styles.challengeStat}>50%</Text>
-                <Text style={styles.challengeLabel}>Vaccine Waste</Text>
-            </View>
-            <View style={styles.challengeCard}>
-                <MaterialCommunityIcons name="trending-down" size={24} color="#4285F4" />
-                <Text style={styles.challengeStat}>Billions</Text>
-                <Text style={styles.challengeLabel}>Lost Annually</Text>
-            </View>
+          <View style={styles.challengeCard}>
+            <MaterialCommunityIcons name="alert-octagram" size={24} color="#FF6B6B" />
+            <Text style={[styles.challengeStat, {color:'#FF6B6B'}]}>50%</Text>
+            <Text style={styles.challengeLabel}>Vaccine Waste Rate</Text>
+          </View>
+          <View style={styles.challengeCard}>
+            <MaterialCommunityIcons name="currency-inr" size={24} color="#FFB347" />
+            <Text style={[styles.challengeStat, {color:'#FFB347'}]}>₹35 Billion+</Text>
+            <Text style={styles.challengeLabel}>Annual Losses (India)</Text>
+          </View>
         </View>
 
-        <Text style={styles.sectionTitle}>System Solutions</Text>
-        <View style={styles.solutionList}>
-            {[
-                {icon: 'gauge', t: 'Real-time Monitoring'},
-                {icon: 'animation', t: 'Multi-box Tracking'},
-                {icon: 'bell-outline', t: 'Temperature Alerts'},
-                {icon: 'snowflake', t: 'PCM Stability'}
-            ].map((item, index) => (
-                <View key={index} style={styles.solRow}>
-                    <MaterialCommunityIcons name={item.icon} size={20} color="#00FFAD" />
-                    <Text style={styles.solText}>{item.t}</Text>
-                </View>
-            ))}
+        {/* WHAT IS COLDSYNC */}
+        <Text style={styles.sectionTitle}>Our Solution</Text>
+        <View style={[styles.missionDarkCard, {borderColor: '#00FFAD30'}]}>
+          <Text style={[styles.hubGreeting, {marginBottom: 10}]}>What is ColdSync?</Text>
+          <Text style={styles.aboutText}>
+            ColdSync is an <Text style={{color:'#FFF', fontWeight:'700'}}>ESP32-based IoT monitoring system</Text> that attaches to cold-chain shipment boxes and streams live temperature, humidity, and battery data to a cloud dashboard in real-time.{"\n\n"}
+            When a temperature breach occurs, ColdSync <Text style={{color:'#FFF', fontWeight:'700'}}>automatically detects it, triggers hardware mitigation</Text> (activating cooling fans and PCM phase-change material systems), and logs a timestamped alert — creating a full chain-of-custody audit trail visible to every stakeholder.
+          </Text>
         </View>
-        <Text style={styles.visionQuote}>"Revolutionizing global healthcare through precision logistics."</Text>
+
+        {/* HOW IT WORKS */}
+        <Text style={styles.sectionTitle}>How It Works</Text>
+        <View style={styles.solutionList}>
+          {[
+            { num: '01', icon: 'cpu-64-bit',       title: 'Hardware Sensors on Every Box',      sub: 'ESP32 + DHT22 sensors stream temperature & humidity to Firebase every few seconds.' },
+            { num: '02', icon: 'bell-alert',        title: 'Intelligent Breach Detection',       sub: 'Exceeding 8°C triggers an instant alert, fan activation, and PCM mitigation — automatically.' },
+            { num: '03', icon: 'monitor-dashboard', title: 'Live Dashboard for Operators',       sub: 'Mobile app shows unit health, PCM state, battery load, and a full event timeline.' },
+            { num: '04', icon: 'file-chart',        title: 'Automated Audit Reports',            sub: 'One tap generates a compliance-ready PDF with breach stats, risk levels, and custody logs.' },
+          ].map((item, i) => (
+            <View key={i} style={[styles.solRow, {alignItems:'flex-start', marginBottom: 18, paddingBottom: 18, borderBottomWidth: i < 3 ? 1 : 0, borderBottomColor: '#1E293B'}]}>
+              <View style={{width: 28, height: 28, borderRadius: 8, backgroundColor: '#112240', borderWidth: 1, borderColor: '#1E293B', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2}}>
+                <Text style={{color:'#00FFAD', fontSize:10, fontWeight:'900'}}>{item.num}</Text>
+              </View>
+              <View style={{flex:1}}>
+                <Text style={{color:'#FFF', fontSize:13, fontWeight:'800', marginBottom: 4}}>{item.title}</Text>
+                <Text style={{color:'#8892B0', fontSize:12, lineHeight:18}}>{item.sub}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* IMPACT */}
+        <Text style={styles.sectionTitle}>Impact at a Glance</Text>
+        <View style={[styles.challengeRow, {flexWrap:'wrap', gap: 10}]}>
+          {[
+            {label:'Detection', val:'Real-time\nAlerts',    color:'#00FFAD'},
+            {label:'Response',  val:'Auto\nMitigation',     color:'#4285F4'},
+            {label:'Tracing',   val:'Full Audit\nTrail',    color:'#FFB347'},
+            {label:'Coverage',  val:'Multi-box\nTracking',  color:'#FF6B6B'},
+          ].map((item,i) => (
+            <View key={i} style={[styles.challengeCard, {width:'47%'}]}>
+              <Text style={styles.challengeLabel}>{item.label}</Text>
+              <Text style={[styles.challengeStat, {color: item.color, fontSize: 16, marginVertical: 4}]}>{item.val}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* VISION */}
+        <Text style={styles.sectionTitle}>Our Vision</Text>
+        <View style={[styles.missionDarkCard, {borderColor: '#4285F430'}]}>
+          <View style={{backgroundColor:'#4285F412', borderWidth:1, borderColor:'#4285F430', borderRadius:6, paddingHorizontal:10, paddingVertical:4, alignSelf:'flex-start', marginBottom:14}}>
+            <Text style={{color:'#4285F4', fontSize:9, fontWeight:'800', letterSpacing:2}}>LONG-TERM IMPACT</Text>
+          </View>
+          <Text style={styles.aboutText}>
+            We envision a future where <Text style={{color:'#FFF', fontWeight:'700'}}>every vaccine, biologic, and temperature-sensitive medicine</Text> reaches its destination with its potency intact — regardless of geography, infrastructure, or logistical complexity.{"\n\n"}
+            ColdSync is not just a monitoring tool. It is <Text style={{color:'#FFF', fontWeight:'700'}}>the trust infrastructure for healthcare logistics</Text> — ensuring that the last mile, often the most vulnerable, is finally as accountable as the first.
+          </Text>
+        </View>
+
+        <Text style={styles.visionQuote}>
+          "Revolutionizing global healthcare through precision cold chain intelligence — built at RVCE, designed for the world."
+        </Text>
+
       </ScrollView>
     </View>
   );
