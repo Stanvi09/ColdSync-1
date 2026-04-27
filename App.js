@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, Text, ScrollView, StyleSheet, 
   TouchableOpacity, Modal, TextInput, StatusBar,
-  Dimensions, Animated
+  Dimensions, Animated, Platform
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -153,7 +153,7 @@ function MissionScreen() {
         <View style={styles.welcomeHeader}>
           <Text style={styles.grandWelcomeText}>ABOUT</Text>
           <Text style={styles.brandTitleText}>COLDSYNC</Text>
-          <div style={styles.accentLine} />
+          <View style={styles.accentLine} />
           <Text style={styles.heroSubtitle}>Ensuring safe delivery of life-saving medicines through real-time monitoring.</Text>
         </View>
 
@@ -173,7 +173,7 @@ function MissionScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>The Challenge</Text>
-        <view style={styles.challengeRow}>
+        <View style={styles.challengeRow}>
             <View style={styles.challengeCard}>
                 <MaterialCommunityIcons name="alert-octagram" size={24} color="#FF4D4D" />
                 <Text style={styles.challengeStat}>50%</Text>
@@ -184,7 +184,7 @@ function MissionScreen() {
                 <Text style={styles.challengeStat}>Billions</Text>
                 <Text style={styles.challengeLabel}>Lost Annually</Text>
             </View>
-        </view>
+        </View>
 
         <Text style={styles.sectionTitle}>System Solutions</Text>
         <View style={styles.solutionList}>
@@ -601,10 +601,18 @@ function AuditScreen() {
   <div class="footer"><span>ColdSync · RVCE Innovation Lab · Confidential</span><span>${dateStr}, ${timeStr}</span></div>
 </div></body></html>`;
 
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'ColdSync Audit Report', UTI: 'com.adobe.pdf' });
+      if (Platform.OS === 'web') {
+        // On web, open the clean HTML report in a new tab so only report content is printed
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const win = window.open(url, '_blank');
+        if (win) win.focus();
+      } else {
+        const { uri } = await Print.printToFileAsync({ html, base64: false });
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'ColdSync Audit Report', UTI: 'com.adobe.pdf' });
+        }
       }
       setReportReady(true);
       setTimeout(() => setReportReady(false), 3000);
@@ -797,7 +805,7 @@ export default function App() {
         }}
       >
         <Tab.Screen name="Home" options={{ tabBarIcon: ({color}) => <MaterialCommunityIcons name="home-variant" size={24} color={color} /> }}>
-          {() => <HubScreen user={user} onSignOut={() => setUser(null)} />}
+          {({ navigation }) => <HubScreen navigation={navigation} user={user} onSignOut={() => setUser(null)} />}
         </Tab.Screen>
         <Tab.Screen name="Units" component={UnitsScreen} options={{ tabBarIcon: ({color}) => <MaterialCommunityIcons name="view-grid" size={24} color={color} /> }} />
         <Tab.Screen name="Transit" options={{ tabBarIcon: ({color}) => <MaterialCommunityIcons name="radar" size={24} color={color} /> }}>
