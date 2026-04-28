@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
   TouchableOpacity, Modal, TextInput, StatusBar,
-  Dimensions, Animated, Platform
+  Clipboard, Share, Dimensions, Animated, Platform
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -534,7 +534,29 @@ function HubScreen({ navigation, user, onSignOut }) {
                 <Text style={hub.shareId}>{user?.trackingId}</Text>
                 <Text style={hub.shareSub}>The receiver needs this ID to track your shipment</Text>
               </View>
-              <MaterialCommunityIcons name="share-variant" size={22} color={C.accent} />
+              <View style={{ gap: 8 }}>
+                <TouchableOpacity
+                  style={hub.shareBtn}
+                  onPress={() => {
+                    Clipboard.setString(user?.trackingId);
+                    alert('Tracking ID copied to clipboard!');
+                  }}
+                >
+                  <MaterialCommunityIcons name="content-copy" size={14} color={C.accent} />
+                  <Text style={hub.shareBtnText}>COPY</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[hub.shareBtn, { backgroundColor: C.blueDim, borderColor: C.blue + '40' }]}
+                  onPress={() => Share.share({
+                    message: `Your ColdSync shipment tracking ID is: ${user?.trackingId}
+Track your shipment live on the ColdSync app.`,
+                    title: 'ColdSync Tracking ID',
+                  })}
+                >
+                  <MaterialCommunityIcons name="share-variant" size={14} color={C.blue} />
+                  <Text style={[hub.shareBtnText, { color: C.blue }]}>SHARE</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -575,6 +597,8 @@ const hub = StyleSheet.create({
   shareLabel: { color: C.textMute, fontSize: 8, fontWeight: '800', letterSpacing: 1.5, marginBottom: 6 },
   shareId: { color: C.accent, fontSize: 22, fontWeight: '900', letterSpacing: 1, marginBottom: 4 },
   shareSub: { color: C.textSec, fontSize: 10 },
+  shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.accentDim, borderWidth: 1, borderColor: C.accent + '40', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  shareBtnText: { color: C.accent, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
 });
 
 // ═══════════════════════════════════════════════════════════════
