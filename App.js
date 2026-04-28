@@ -13,7 +13,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // --- FIREBASE CONFIG ---
 import { ref, onValue, push, set } from 'firebase/database';
-import { db } from './firebaseConfig';
+import { db, auth } from './firebaseConfig';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
 
 // ─── DESIGN TOKENS ──────────────────────────────────────────────
 const C = {
@@ -145,45 +149,118 @@ function AuthScreen({ onAuth }) {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
 
-      let cleanId;
+    const doAuth = async () => {
+      try {
+        let firebaseUser;
+        let cleanId;
 
-      if (mode === 'signup' && role === 'dispatcher') {
-        // Dispatcher: generate a new tracking ID and create the shipment node
-        cleanId = generateTrackingId();
-        const shipmentRef = ref(db, `shipments/${cleanId}`);
-        set(shipmentRef, {
-          destination: destination.trim(),
-          eta: eta.trim(),
-          contents: contents.trim() || 'Not specified',
-          status: 'IN-TRANSIT',
-          dispatchedBy: name.trim(),
-          createdAt: new Date().toISOString(),
-        });
-      } else {
-        cleanId = trackId.toUpperCase();
-        // Receiver signup or any login: just verify/read the existing shipment
-        if (mode === 'signup' && role === 'receiver') {
-          // Check the shipment exists — just read it (TransitScreen handles display)
-          const shipmentRef = ref(db, `shipments/${cleanId}`);
-          onValue(shipmentRef, (snapshot) => {
-            if (!snapshot.exists()) {
+        if (mode === 'signup') {
+          // --- SIGN UP ---
+          try {
+            firebaseUser = await createUserWithEmailAndPassword(auth, email.trim(), password);
+          } catch (e) {
+            setLoading(false);
+            if (e.code === 'auth/email-already-in-use') {
+              // Already registered — just switch to sign in for them
+              setMode('login');
+              setError('Looks like you already have an account. We've switched to sign in — just enter your password.');
+            } else if (e.code === 'auth/invalid-email') {
+              setError('Invalid email address.');
+            } else {
+              setError('Sign up failed: ' + e.message);
+            }
+            return;
+          }
+
+          if (role === 'dispatcher') {
+            // Generate tracking ID and create shipment node
+            cleanId = generateTrackingId();
+            const shipmentRef = ref(db, `shipments/${cleanId}`);
+            await set(shipmentRef, {
+              destination: destination.trim(),
+              eta: eta.trim(),
+              contents: contents.trim() || 'Not specified',
+              status: 'IN-TRANSIT',
+              dispatchedBy: name.trim(),
+              createdAt: new Date().toISOString(),
+            });
+          } else {
+            // Receiver: validate the tracking ID actually exists in Firebase
+            cleanId = trackId.toUpperCase();
+            const shipmentRef = ref(db, `shipments/${cleanId}`);
+            const exists = await new Promise((resolve) => {
+              onValue(shipmentRef, (snap) => resolve(snap.exists()), { onlyOnce: true });
+            });
+            if (!exists) {
               setError('Tracking ID not found. Ask the sender to double-check.');
               setLoading(false);
+              return;
+            }
+          }
+
+          // Save user profile (name, role, trackingId) to Firebase under their uid
+          await set(ref(db, `users/${firebaseUser.user.uid}`), {
+            name: name.trim(),
+            email: email.trim(),
+            role,
+            trackingId: cleanId,
+          });
+
+          setLoading(false);
+          onAuth({ name: name.trim(), trackingId: cleanId, role, isNew: true });
+
+        } else {
+          // --- SIGN IN ---
+          try {
+            firebaseUser = await signInWithEmailAndPassword(auth, email.trim(), password);
+          } catch (e) {
+            setLoading(false);
+            if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+              // No account — switch to signup for them
+              setMode('signup');
+              setError('No account found with this email. We've switched to sign up — fill in your details to get started.');
+            } else if (e.code === 'auth/wrong-password') {
+              setError('Wrong password. Please try again.');
+            } else if (e.code === 'auth/too-many-requests') {
+              setError('Too many attempts. Please wait a moment and try again.');
+            } else {
+              setError('Sign in failed: ' + e.message);
+            }
+            return;
+          }
+
+          // Read saved profile from Firebase to restore name, role, trackingId
+          const profileRef = ref(db, `users/${firebaseUser.user.uid}`);
+          onValue(profileRef, (snap) => {
+            const profile = snap.val();
+            if (profile) {
+              setLoading(false);
+              onAuth({
+                name: profile.name,
+                trackingId: profile.trackingId || trackId.toUpperCase(),
+                role: profile.role || 'dispatcher',
+                isNew: false,
+              });
+            } else {
+              // Fallback if no profile saved (legacy accounts)
+              setLoading(false);
+              onAuth({
+                name: email.split('@')[0],
+                trackingId: trackId.toUpperCase(),
+                role: 'dispatcher',
+                isNew: false,
+              });
             }
           }, { onlyOnce: true });
         }
+      } catch (e) {
+        setError('Something went wrong. Please try again.');
+        setLoading(false);
       }
+    };
 
-      onAuth({
-        name: name || email.split('@')[0],
-        trackingId: cleanId,
-        role: mode === 'login' ? 'dispatcher' : role, // existing logins default to dispatcher view
-        isNew: mode === 'signup',
-      });
-    }, 800);
+    doAuth();
   };
 
   // ── Role picker (shown before login/signup form) ─────────────────
@@ -307,12 +384,19 @@ function AuthScreen({ onAuth }) {
           <Field icon="barcode-scan" label="SHIPMENT TRACKING ID" placeholder="e.g. CS-AB12-XY9" value={trackId} onChangeText={setTrackId} autoCapitalize="characters" hint={role === 'receiver' ? 'Enter the ID shared by the sender.' : 'Your shipment tracking ID.'} />
         )}
 
-        {!!error && (
-          <View style={authS.errorBox}>
-            <MaterialCommunityIcons name="alert-circle-outline" size={14} color={C.red} />
-            <Text style={authS.errorText}>{error}</Text>
-          </View>
-        )}
+        {!!error && (() => {
+          const isHint = error.startsWith("Looks like") || error.startsWith("No account found");
+          return (
+            <View style={[authS.errorBox, isHint && { backgroundColor: C.amberDim, borderColor: C.amber + '40' }]}>
+              <MaterialCommunityIcons
+                name={isHint ? 'information-outline' : 'alert-circle-outline'}
+                size={14}
+                color={isHint ? C.amber : C.red}
+              />
+              <Text style={[authS.errorText, isHint && { color: C.amber }]}>{error}</Text>
+            </View>
+          );
+        })()}
 
         <TouchableOpacity style={[authS.btn, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.85}>
           <MaterialCommunityIcons name={mode === 'login' ? 'login' : 'account-plus'} size={17} color={C.bg} />
