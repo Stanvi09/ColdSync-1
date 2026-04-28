@@ -505,7 +505,7 @@ function MissionScreen() {
         <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 12, marginBottom: 4 }}>
           {[
             { icon: 'alert-octagram', color: C.red,   stat: '50%',  label: 'Vaccine Waste Rate' },
-            { icon: 'currency-inr',   color: C.amber, stat: '₹Bn+', label: 'Annual Losses (India)' },
+            { icon: 'currency-inr',   color: C.amber, stat: '₹35Bn+', label: 'Annual Losses (India)' },
           ].map((item, i) => (
             <View key={i} style={[gs.glassCard, { flex: 1, alignItems: 'center' }]}>
               <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
@@ -529,7 +529,7 @@ function MissionScreen() {
         <SectionHeader label="How It Works" />
         <View style={[gs.glassCard, { marginHorizontal: 20 }]}>
           {[
-            { num: '01', icon: 'cpu-64-bit',       title: 'Hardware Sensors on Every Box',  sub: 'ESP32 + DHT22 sensors stream temperature & humidity to Firebase every few seconds.' },
+            { num: '01', icon: 'cpu-64-bit',       title: 'Hardware Sensors on Every Box',  sub: 'ESP32 + DS18B20 sensors stream temperature & humidity to Firebase every few seconds.' },
             { num: '02', icon: 'bell-alert',        title: 'Intelligent Breach Detection',   sub: 'Exceeding 8°C triggers an instant alert, fan activation, and PCM mitigation — automatically.' },
             { num: '03', icon: 'monitor-dashboard', title: 'Live Dashboard for Operators',   sub: 'Mobile app shows unit health, PCM state, battery load, and a full event timeline.' },
             { num: '04', icon: 'file-chart',        title: 'Automated Audit Reports',        sub: 'One tap generates a compliance-ready PDF with breach stats, risk levels, and custody logs.' },
