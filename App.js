@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  View, Text, ScrollView, StyleSheet, 
+import {
+  View, Text, ScrollView, StyleSheet,
   TouchableOpacity, Modal, TextInput, StatusBar,
   Dimensions, Animated, Platform
 } from 'react-native';
@@ -13,17 +13,92 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // --- FIREBASE CONFIG ---
 import { ref, onValue, push, set } from 'firebase/database';
-import { db } from './firebaseConfig'; 
+import { db } from './firebaseConfig';
 
-// --- SHARED COMPONENTS ---
+// ─── DESIGN TOKENS ──────────────────────────────────────────────
+const C = {
+  bg:        '#06080F',
+  surface:   '#0D1321',
+  card:      '#111827',
+  border:    '#1C2840',
+  borderHi:  '#243352',
+  accent:    '#00F5A0',
+  accentDim: '#00F5A018',
+  blue:      '#3D8EFF',
+  blueDim:   '#3D8EFF18',
+  red:       '#FF4560',
+  redDim:    '#FF456018',
+  amber:     '#FFB443',
+  amberDim:  '#FFB44318',
+  textPri:   '#EDF2FF',
+  textSec:   '#6B7FA8',
+  textMute:  '#2F3F5E',
+};
+
+// ─── POWER RING ─────────────────────────────────────────────────
 const PowerRing = ({ percentage, color }) => (
-  <View style={styles.ringOutline}>
-    <View style={[styles.ringFill, { height: `${percentage}%`, backgroundColor: color, top: `${100 - percentage}%` }]} />
-    <Text style={styles.ringText}>{percentage}%</Text>
+  <View style={ring.wrap}>
+    <View style={[ring.fill, { height: `${percentage}%`, backgroundColor: color, top: `${100 - percentage}%` }]} />
+    <Text style={ring.text}>{percentage}%</Text>
   </View>
 );
+const ring = StyleSheet.create({
+  wrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: C.bg, overflow: 'hidden', justifyContent: 'flex-end', borderWidth: 1, borderColor: C.border },
+  fill: { width: '100%', position: 'absolute', opacity: 0.85 },
+  text: { color: C.textPri, fontWeight: '800', fontSize: 13, width: '100%', textAlign: 'center', marginBottom: 24, zIndex: 2 },
+});
 
-// --- AUTH SCREEN (Login + Signup) ---
+// ─── PILL BADGE ─────────────────────────────────────────────────
+const Pill = ({ label, color = C.accent, dimColor, icon }) => (
+  <View style={[pill.wrap, { backgroundColor: dimColor || color + '18', borderColor: color + '40' }]}>
+    {icon && <MaterialCommunityIcons name={icon} size={10} color={color} style={{ marginRight: 4 }} />}
+    <Text style={[pill.text, { color }]}>{label}</Text>
+  </View>
+);
+const pill = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  text: { fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
+});
+
+// ─── SECTION HEADER ─────────────────────────────────────────────
+const SectionHeader = ({ label }) => (
+  <View style={sh.row}>
+    <View style={sh.line} />
+    <Text style={sh.text}>{label}</Text>
+    <View style={sh.lineRight} />
+  </View>
+);
+const sh = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 28, marginBottom: 16 },
+  line: { width: 20, height: 1, backgroundColor: C.border, marginRight: 10 },
+  lineRight: { flex: 1, height: 1, backgroundColor: C.border, marginLeft: 10 },
+  text: { color: C.textMute, fontSize: 9, fontWeight: '900', letterSpacing: 2.5, textTransform: 'uppercase' },
+});
+
+// ─── SIMPLE BAR CHART ───────────────────────────────────────────
+const SimpleBarChart = ({ data }) => {
+  const maxVal = Math.max(...data.map(d => d.value), 1);
+  return (
+    <View style={{ gap: 14 }}>
+      {data.map((item, i) => (
+        <View key={i}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+            <Text style={{ color: C.textSec, fontSize: 11, fontWeight: '600', flex: 1 }}>{item.label}</Text>
+            <Text style={{ color: item.color, fontSize: 11, fontWeight: '800', marginLeft: 8 }}>{item.display}</Text>
+          </View>
+          <View style={{ height: 8, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden' }}>
+            <View style={{ height: '100%', width: `${(item.value / maxVal) * 100}%`, backgroundColor: item.color, borderRadius: 4 }} />
+          </View>
+          {item.note ? <Text style={{ color: C.textMute, fontSize: 9, marginTop: 4 }}>{item.note}</Text> : null}
+        </View>
+      ))}
+    </View>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH SCREEN
+// ═══════════════════════════════════════════════════════════════
 function AuthScreen({ onAuth }) {
   const [mode, setMode]         = useState('login');
   const [name, setName]         = useState('');
@@ -33,6 +108,11 @@ function AuthScreen({ onAuth }) {
   const [showPass, setShowPass] = useState(false);
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+  }, []);
 
   const handleSubmit = () => {
     setError('');
@@ -54,282 +134,256 @@ function AuthScreen({ onAuth }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={authStyles.screen} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={authS.screen} keyboardShouldPersistTaps="handled">
       <StatusBar barStyle="light-content" />
 
-      <View style={authStyles.logoBlock}>
-        <View style={authStyles.logoIconRing}>
-          <MaterialCommunityIcons name="snowflake" size={32} color="#00FFAD" />
+      <Animated.View style={[authS.logoBlock, { opacity: fadeAnim }]}>
+        <View style={authS.logoRing}>
+          <MaterialCommunityIcons name="snowflake" size={28} color={C.accent} />
         </View>
-        <Text style={authStyles.logoText}>ColdSync</Text>
-        <Text style={authStyles.logoSub}>RVCE INNOVATION LAB</Text>
-      </View>
+        <Text style={authS.logoText}>ColdSync</Text>
+        <Text style={authS.logoSub}>RVCE INNOVATION LAB</Text>
+      </Animated.View>
 
-      <View style={authStyles.card}>
-        <View style={authStyles.tabRow}>
-          <TouchableOpacity style={[authStyles.tab, mode === 'login' && authStyles.tabActive]} onPress={() => { setMode('login'); setError(''); }}>
-            <Text style={[authStyles.tabText, mode === 'login' && authStyles.tabTextActive]}>Sign In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[authStyles.tab, mode === 'signup' && authStyles.tabActive]} onPress={() => { setMode('signup'); setError(''); }}>
-            <Text style={[authStyles.tabText, mode === 'signup' && authStyles.tabTextActive]}>Create Account</Text>
-          </TouchableOpacity>
+      <Animated.View style={[authS.card, { opacity: fadeAnim }]}>
+        {/* Tab switcher */}
+        <View style={authS.tabRow}>
+          {['login','signup'].map(m => (
+            <TouchableOpacity key={m} style={[authS.tab, mode === m && authS.tabActive]} onPress={() => { setMode(m); setError(''); }}>
+              <Text style={[authS.tabText, mode === m && authS.tabTextActive]}>{m === 'login' ? 'Sign In' : 'Sign Up'}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <Text style={authStyles.cardHeading}>{mode === 'login' ? 'Welcome back' : 'Join ColdSync'}</Text>
-        <Text style={authStyles.cardSub}>{mode === 'login' ? 'Sign in to monitor your cold chain in real-time.' : 'Create your operator account to get started.'}</Text>
+        <Text style={authS.heading}>{mode === 'login' ? 'Welcome back' : 'Create account'}</Text>
+        <Text style={authS.sub}>{mode === 'login' ? 'Monitor your cold chain in real-time.' : 'Register as a ColdSync operator.'}</Text>
 
         {mode === 'signup' && (
-          <View style={authStyles.fieldGroup}>
-            <Text style={authStyles.fieldLabel}>FULL NAME</Text>
-            <View style={authStyles.inputRow}>
-              <MaterialCommunityIcons name="account-outline" size={18} color="#495670" style={authStyles.inputIcon} />
-              <TextInput style={authStyles.input} placeholder="Dr. Tanvi Sharma" placeholderTextColor="#2E3D55" value={name} onChangeText={setName} autoCapitalize="words" />
-            </View>
-          </View>
+          <Field icon="account-outline" label="FULL NAME" placeholder="Dr. Tanvi Sharma" value={name} onChangeText={setName} autoCapitalize="words" />
         )}
-
-        <View style={authStyles.fieldGroup}>
-          <Text style={authStyles.fieldLabel}>EMAIL ADDRESS</Text>
-          <View style={authStyles.inputRow}>
-            <MaterialCommunityIcons name="email-outline" size={18} color="#495670" style={authStyles.inputIcon} />
-            <TextInput style={authStyles.input} placeholder="operator@coldsync.in" placeholderTextColor="#2E3D55" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-          </View>
-        </View>
-
-        <View style={authStyles.fieldGroup}>
-          <Text style={authStyles.fieldLabel}>PASSWORD</Text>
-          <View style={authStyles.inputRow}>
-            <MaterialCommunityIcons name="lock-outline" size={18} color="#495670" style={authStyles.inputIcon} />
-            <TextInput style={[authStyles.input, { flex: 1 }]} placeholder="••••••••" placeholderTextColor="#2E3D55" value={password} onChangeText={setPassword} secureTextEntry={!showPass} />
-            <TouchableOpacity onPress={() => setShowPass(p => !p)} style={{ paddingHorizontal: 12 }}>
-              <MaterialCommunityIcons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={18} color="#495670" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={authStyles.fieldGroup}>
-          <Text style={authStyles.fieldLabel}>SHIPMENT TRACKING ID</Text>
-          <View style={authStyles.inputRow}>
-            <MaterialCommunityIcons name="barcode-scan" size={18} color="#495670" style={authStyles.inputIcon} />
-            <TextInput style={authStyles.input} placeholder="e.g. CS-RVCE-01" placeholderTextColor="#2E3D55" value={trackId} onChangeText={setTrackId} autoCapitalize="characters" />
-          </View>
-          <Text style={authStyles.fieldHint}>This links your session to an active shipment.</Text>
-        </View>
+        <Field icon="email-outline" label="EMAIL" placeholder="operator@coldsync.in" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+        <Field icon="lock-outline" label="PASSWORD" placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry={!showPass} rightIcon={showPass ? 'eye-off-outline' : 'eye-outline'} onRightIcon={() => setShowPass(p => !p)} />
+        <Field icon="barcode-scan" label="SHIPMENT TRACKING ID" placeholder="e.g. CS-RVCE-01" value={trackId} onChangeText={setTrackId} autoCapitalize="characters" hint="Links your session to an active shipment." />
 
         {!!error && (
-          <View style={authStyles.errorBox}>
-            <MaterialCommunityIcons name="alert-circle-outline" size={14} color="#FF4D4D" />
-            <Text style={authStyles.errorText}>{error}</Text>
+          <View style={authS.errorBox}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={14} color={C.red} />
+            <Text style={authS.errorText}>{error}</Text>
           </View>
         )}
 
-        <TouchableOpacity style={[authStyles.submitBtn, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.85}>
-          <MaterialCommunityIcons name={mode === 'login' ? 'login' : 'account-plus'} size={18} color="#020C1B" />
-          <Text style={authStyles.submitText}>{loading ? 'AUTHENTICATING...' : mode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'}</Text>
+        <TouchableOpacity style={[authS.btn, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.85}>
+          <MaterialCommunityIcons name={mode === 'login' ? 'login' : 'account-plus'} size={17} color={C.bg} />
+          <Text style={authS.btnText}>{loading ? 'AUTHENTICATING...' : mode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); }} style={{ marginTop: 18, alignItems: 'center' }}>
-          <Text style={authStyles.switchText}>
-            {mode === 'login' ? "Don't have an account? " : 'Already registered? '}
-            <Text style={{ color: '#00FFAD', fontWeight: '700' }}>{mode === 'login' ? 'Sign up' : 'Sign in'}</Text>
+        <TouchableOpacity onPress={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); }} style={{ marginTop: 20, alignItems: 'center' }}>
+          <Text style={authS.switchText}>
+            {mode === 'login' ? "No account? " : 'Have an account? '}
+            <Text style={{ color: C.accent, fontWeight: '800' }}>{mode === 'login' ? 'Sign up' : 'Sign in'}</Text>
           </Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
-      <Text style={authStyles.footer}>Authorized Personnel Only · RVCE Innovation Lab</Text>
+      <Text style={authS.footer}>Authorized Personnel Only · RVCE Innovation Lab</Text>
     </ScrollView>
   );
 }
-// --- MISSION SCREEN ---
+
+// Reusable form field
+const Field = ({ icon, label, hint, rightIcon, onRightIcon, ...props }) => (
+  <View style={{ marginBottom: 14 }}>
+    <Text style={authS.fieldLabel}>{label}</Text>
+    <View style={authS.inputRow}>
+      <MaterialCommunityIcons name={icon} size={17} color={C.textMute} style={{ paddingLeft: 14 }} />
+      <TextInput style={[authS.input, { flex: 1 }]} placeholderTextColor={C.textMute} {...props} />
+      {rightIcon && (
+        <TouchableOpacity onPress={onRightIcon} style={{ paddingHorizontal: 12 }}>
+          <MaterialCommunityIcons name={rightIcon} size={17} color={C.textMute} />
+        </TouchableOpacity>
+      )}
+    </View>
+    {hint && <Text style={authS.hint}>{hint}</Text>}
+  </View>
+);
+
+const authS = StyleSheet.create({
+  screen: { flexGrow: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 60 },
+  logoBlock: { alignItems: 'center', marginBottom: 30 },
+  logoRing: { width: 60, height: 60, borderRadius: 30, backgroundColor: C.accentDim, borderWidth: 1.5, borderColor: C.accent + '50', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  logoText: { color: C.accent, fontSize: 30, fontWeight: '900', letterSpacing: -1 },
+  logoSub: { color: C.textMute, fontSize: 9, fontWeight: '800', letterSpacing: 3, marginTop: 3 },
+  card: { width: '100%', backgroundColor: C.surface, borderRadius: 24, padding: 22, borderWidth: 1, borderColor: C.border },
+  tabRow: { flexDirection: 'row', backgroundColor: C.card, borderRadius: 12, padding: 4, marginBottom: 22 },
+  tab: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
+  tabActive: { backgroundColor: C.accent },
+  tabText: { color: C.textSec, fontSize: 12, fontWeight: '700' },
+  tabTextActive: { color: C.bg, fontWeight: '900' },
+  heading: { color: C.textPri, fontSize: 22, fontWeight: '900', marginBottom: 4 },
+  sub: { color: C.textSec, fontSize: 12, lineHeight: 18, marginBottom: 20 },
+  fieldLabel: { color: C.textMute, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 6 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.border },
+  input: { color: C.textPri, paddingVertical: 13, paddingHorizontal: 10, fontSize: 14 },
+  hint: { color: C.textMute, fontSize: 9, marginTop: 5 },
+  errorBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.redDim, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: C.red + '30' },
+  errorText: { color: C.red, fontSize: 12, flex: 1 },
+  btn: { backgroundColor: C.accent, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 4 },
+  btnText: { color: C.bg, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+  switchText: { color: C.textSec, fontSize: 13 },
+  footer: { color: C.textMute, fontSize: 9, marginTop: 24, letterSpacing: 0.5 },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MISSION SCREEN
+// ═══════════════════════════════════════════════════════════════
 function MissionScreen() {
   return (
-    <View style={styles.container}>
-      <View style={styles.headerBar}>
-        <Text style={styles.mainLogoText}>ColdSync</Text>
-        <View style={styles.rvBadge}><Text style={styles.rvText}>RVCE INNOVATION</Text></View>
-      </View>
-      <ScrollView contentContainerStyle={styles.scrollArea}>
+    <View style={gs.screen}>
+      <Header title="ColdSync" right={<Pill label="MISSION" icon="information" />} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
 
-        {/* HERO */}
-        <View style={styles.welcomeHeader}>
-          <Text style={styles.grandWelcomeText}>ABOUT COLDSYNC</Text>
-          <Text style={[styles.brandTitleText, {fontSize: 38, lineHeight: 44}]}>
-            Keeping{"\n"}<Text style={{color: '#00FFAD'}}>life-saving</Text>{"\n"}medicines cold.
-          </Text>
-          <View style={styles.accentLine} />
-          <Text style={styles.heroSubtitle}>
-            An IoT-powered cold chain intelligence platform that monitors vaccines and biologics in real-time — from warehouse to last-mile delivery.
-          </Text>
+        <View style={{ paddingHorizontal: 20, paddingTop: 32, paddingBottom: 24 }}>
+          <Text style={gs.pageEyebrow}>ABOUT</Text>
+          <Text style={gs.pageTitle}>ColdSync</Text>
+          <View style={gs.accentBar} />
+          <Text style={gs.pageSub}>Ensuring safe delivery of life-saving medicines through real-time monitoring.</Text>
         </View>
 
-        {/* THE PROBLEM */}
-        <Text style={styles.sectionTitle}>The Problem We Solve</Text>
-        <View style={[styles.missionDarkCard, {borderColor: '#FF6B6B30', marginBottom: 8}]}>
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10}}>
-            <MaterialCommunityIcons name="alert-octagram" size={18} color="#FF6B6B" />
-            <Text style={{color: '#FF6B6B', fontSize: 11, fontWeight: '800', letterSpacing: 1}}>COLD CHAIN FAILURE IS A GLOBAL HEALTHCARE CRISIS</Text>
-          </View>
-          <Text style={styles.aboutText}>
-            Every year, <Text style={{color:'#FFF', fontWeight:'700'}}>up to 50% of all vaccines are wasted globally</Text> — not due to disease, but due to temperature excursions during storage and transit. In India alone, cold chain failures cost the healthcare system <Text style={{color:'#FFF', fontWeight:'700'}}>billions of rupees annually</Text>, silently undermining immunization programs.{"\n\n"}
-            The root cause: <Text style={{color:'#FFF', fontWeight:'700'}}>no real-time visibility</Text>. Shipments travel blind. By the time a breach is detected, damage is already done.
-          </Text>
-        </View>
-        <View style={styles.challengeRow}>
-          <View style={styles.challengeCard}>
-            <MaterialCommunityIcons name="alert-octagram" size={24} color="#FF6B6B" />
-            <Text style={[styles.challengeStat, {color:'#FF6B6B'}]}>50%</Text>
-            <Text style={styles.challengeLabel}>Vaccine Waste Rate</Text>
-          </View>
-          <View style={styles.challengeCard}>
-            <MaterialCommunityIcons name="currency-inr" size={24} color="#FFB347" />
-            <Text style={[styles.challengeStat, {color:'#FFB347'}]}>₹Bn+</Text>
-            <Text style={styles.challengeLabel}>Annual Losses (India)</Text>
-          </View>
-        </View>
-
-        {/* WHAT IS COLDSYNC */}
-        <Text style={styles.sectionTitle}>Our Solution</Text>
-        <View style={[styles.missionDarkCard, {borderColor: '#00FFAD30'}]}>
-          <Text style={[styles.hubGreeting, {marginBottom: 10}]}>What is ColdSync?</Text>
-          <Text style={styles.aboutText}>
-            ColdSync is an <Text style={{color:'#FFF', fontWeight:'700'}}>ESP32-based IoT monitoring system</Text> that attaches to cold-chain shipment boxes and streams live temperature, humidity, and battery data to a cloud dashboard in real-time.{"\n\n"}
-            When a temperature breach occurs, ColdSync <Text style={{color:'#FFF', fontWeight:'700'}}>automatically detects it, triggers hardware mitigation</Text> (activating cooling fans and PCM phase-change material systems), and logs a timestamped alert — creating a full chain-of-custody audit trail visible to every stakeholder.
+        <View style={[gs.glassCard, { marginHorizontal: 20 }]}>
+          <Text style={gs.cardLabel}>OUR MISSION</Text>
+          <Text style={gs.bodyText}>
+            ColdSync redefines healthcare logistics reliability by ensuring temperature-sensitive medical supplies are transported with absolute precision. We integrate real-time telemetry, intelligent monitoring, and adaptive response mechanisms into every stage of the supply chain.
+            {"\n\n"}
+            Rather than relying on delayed checks, ColdSync establishes a continuously aware system that detects anomalies, predicts failures, and initiates corrective actions before damage occurs — shifting cold-chain logistics from reactive to predictive.
+            {"\n\n"}
+            We envision a future where geography and infrastructure no longer determine healthcare quality. Through scalable, intelligent solutions, ColdSync bridges the gap between advanced medical systems and underserved communities.
           </Text>
         </View>
 
-        {/* HOW IT WORKS */}
-        <Text style={styles.sectionTitle}>How It Works</Text>
-        <View style={styles.solutionList}>
+        <SectionHeader label="The Challenge" />
+        <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 12 }}>
           {[
-            { num: '01', icon: 'cpu-64-bit',       title: 'Hardware Sensors on Every Box',      sub: 'ESP32 + DHT22 sensors stream temperature & humidity to Firebase every few seconds.' },
-            { num: '02', icon: 'bell-alert',        title: 'Intelligent Breach Detection',       sub: 'Exceeding 8°C triggers an instant alert, fan activation, and PCM mitigation — automatically.' },
-            { num: '03', icon: 'monitor-dashboard', title: 'Live Dashboard for Operators',       sub: 'Mobile app shows unit health, PCM state, battery load, and a full event timeline.' },
-            { num: '04', icon: 'file-chart',        title: 'Automated Audit Reports',            sub: 'One tap generates a compliance-ready PDF with breach stats, risk levels, and custody logs.' },
+            { icon: 'alert-octagram', color: C.red, stat: '50%', label: 'Vaccine Waste', sub: 'of vaccines wasted globally' },
+            { icon: 'trending-down', color: C.blue, stat: 'Billions', label: 'Lost Annually', sub: 'in avoidable losses' },
           ].map((item, i) => (
-            <View key={i} style={[styles.solRow, {alignItems:'flex-start', marginBottom: 18, paddingBottom: 18, borderBottomWidth: i < 3 ? 1 : 0, borderBottomColor: '#1E293B'}]}>
-              <View style={{width: 28, height: 28, borderRadius: 8, backgroundColor: '#112240', borderWidth: 1, borderColor: '#1E293B', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2}}>
-                <Text style={{color:'#00FFAD', fontSize:10, fontWeight:'900'}}>{item.num}</Text>
-              </View>
-              <View style={{flex:1}}>
-                <Text style={{color:'#FFF', fontSize:13, fontWeight:'800', marginBottom: 4}}>{item.title}</Text>
-                <Text style={{color:'#8892B0', fontSize:12, lineHeight:18}}>{item.sub}</Text>
-              </View>
+            <View key={i} style={[gs.glassCard, { flex: 1 }]}>
+              <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
+              <Text style={[gs.statBig, { color: item.color, marginTop: 8 }]}>{item.stat}</Text>
+              <Text style={gs.statLabel}>{item.label}</Text>
+              <Text style={gs.statSub}>{item.sub}</Text>
             </View>
           ))}
         </View>
 
-        {/* IMPACT */}
-        <Text style={styles.sectionTitle}>Impact at a Glance</Text>
-        <View style={[styles.challengeRow, {flexWrap:'wrap', gap: 10}]}>
+        <SectionHeader label="System Solutions" />
+        <View style={[gs.glassCard, { marginHorizontal: 20 }]}>
           {[
-            {label:'Detection', val:'Real-time\nAlerts',    color:'#00FFAD'},
-            {label:'Response',  val:'Auto\nMitigation',     color:'#4285F4'},
-            {label:'Tracing',   val:'Full Audit\nTrail',    color:'#FFB347'},
-            {label:'Coverage',  val:'Multi-box\nTracking',  color:'#FF6B6B'},
-          ].map((item,i) => (
-            <View key={i} style={[styles.challengeCard, {width:'47%'}]}>
-              <Text style={styles.challengeLabel}>{item.label}</Text>
-              <Text style={[styles.challengeStat, {color: item.color, fontSize: 16, marginVertical: 4}]}>{item.val}</Text>
+            { icon: 'gauge', t: 'Real-time Monitoring' },
+            { icon: 'animation', t: 'Multi-box Tracking' },
+            { icon: 'bell-outline', t: 'Temperature Alerts' },
+            { icon: 'snowflake', t: 'PCM Stability' },
+          ].map((item, i, arr) => (
+            <View key={i} style={[gs.solRow, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: C.border }]}>
+              <View style={gs.solIconBox}>
+                <MaterialCommunityIcons name={item.icon} size={18} color={C.accent} />
+              </View>
+              <Text style={gs.solText}>{item.t}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={16} color={C.textMute} />
             </View>
           ))}
         </View>
 
-        {/* VISION */}
-        <Text style={styles.sectionTitle}>Our Vision</Text>
-        <View style={[styles.missionDarkCard, {borderColor: '#4285F430'}]}>
-          <View style={{backgroundColor:'#4285F412', borderWidth:1, borderColor:'#4285F430', borderRadius:6, paddingHorizontal:10, paddingVertical:4, alignSelf:'flex-start', marginBottom:14}}>
-            <Text style={{color:'#4285F4', fontSize:9, fontWeight:'800', letterSpacing:2}}>LONG-TERM IMPACT</Text>
-          </View>
-          <Text style={styles.aboutText}>
-            We envision a future where <Text style={{color:'#FFF', fontWeight:'700'}}>every vaccine, biologic, and temperature-sensitive medicine</Text> reaches its destination with its potency intact — regardless of geography, infrastructure, or logistical complexity.{"\n\n"}
-            ColdSync is not just a monitoring tool. It is <Text style={{color:'#FFF', fontWeight:'700'}}>the trust infrastructure for healthcare logistics</Text> — ensuring that the last mile, often the most vulnerable, is finally as accountable as the first.
-          </Text>
-        </View>
-
-        <Text style={styles.visionQuote}>
-          "Revolutionizing global healthcare through precision cold chain intelligence — built at RVCE, designed for the world."
-        </Text>
-
+        <Text style={gs.quote}>"Revolutionizing global healthcare through precision logistics."</Text>
       </ScrollView>
     </View>
   );
 }
 
-       
-
-// --- HUB SCREEN ---
+// ═══════════════════════════════════════════════════════════════
+// HUB SCREEN
+// ═══════════════════════════════════════════════════════════════
 function HubScreen({ navigation, user, onSignOut }) {
   return (
-    <View style={styles.container}>
-      <View style={styles.headerBar}>
-        <Text style={styles.mainLogoText}>ColdSync</Text>
-        <TouchableOpacity onPress={onSignOut} style={styles.signOutBtn}>
-          <MaterialCommunityIcons name="logout" size={16} color="#FF4D4D" />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-      <ScrollView contentContainerStyle={styles.scrollArea}>
-        <View style={styles.welcomeHeader}>
-          <Text style={styles.grandWelcomeText}>WELCOME BACK</Text>
-          <Text style={styles.brandTitleText}>{(user?.name || 'Operator').toUpperCase()}</Text>
-          <View style={styles.accentLine} />
-          <View style={styles.trackingPill}>
-            <MaterialCommunityIcons name="barcode-scan" size={13} color="#00FFAD" />
-            <Text style={styles.trackingPillText}>{user?.trackingId || 'CS-RVCE-01'}</Text>
-          </View>
+    <View style={gs.screen}>
+      <Header
+        title="ColdSync"
+        right={
+          <TouchableOpacity onPress={onSignOut} style={hub.signOutBtn}>
+            <MaterialCommunityIcons name="logout" size={14} color={C.red} />
+            <Text style={hub.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        }
+      />
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 32, paddingBottom: 28 }}>
+          <Text style={gs.pageEyebrow}>WELCOME BACK</Text>
+          <Text style={gs.pageTitle}>{(user?.name || 'Operator').toUpperCase()}</Text>
+          <View style={gs.accentBar} />
+          <Pill label={user?.trackingId || 'CS-RVCE-01'} icon="barcode-scan" color={C.accent} />
         </View>
-        <TouchableOpacity style={styles.hubNavBox} onPress={() => navigation.navigate('Units')}>
-          <View style={styles.hubIconCircle}><MaterialCommunityIcons name="view-grid" size={32} color="#00FFAD" /></View>
-          <View style={styles.hubNavContent}><Text style={styles.hubNavTitle}>Asset Telemetry</Text><Text style={styles.hubNavSub}>Monitor box health & diagnostics.</Text></View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color="#495670" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.hubNavBox} onPress={() => navigation.navigate('Transit')}>
-          <View style={[styles.hubIconCircle, {borderColor: '#4285F4'}]}><MaterialCommunityIcons name="radar" size={32} color="#4285F4" /></View>
-          <View style={styles.hubNavContent}><Text style={styles.hubNavTitle}>Live Transit</Text><Text style={styles.hubNavSub}>Track shipment & logs.</Text></View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color="#495670" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.hubNavBox} onPress={() => navigation.navigate('Mission')}>
-          <View style={[styles.hubIconCircle, {borderColor: '#FFF'}]}><MaterialCommunityIcons name="information-variant" size={32} color="#FFF" /></View>
-          <View style={styles.hubNavContent}><Text style={styles.hubNavTitle}>Our Mission</Text><Text style={styles.hubNavSub}>About ColdSync Initiative.</Text></View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color="#495670" />
-        </TouchableOpacity>
+
+        {[
+          { screen: 'Units',   icon: 'view-grid',        color: C.accent, title: 'Asset Telemetry',  sub: 'Monitor box health & diagnostics' },
+          { screen: 'Transit', icon: 'radar',            color: C.blue,   title: 'Live Transit',     sub: 'Track shipment & custody logs' },
+          { screen: 'Mission', icon: 'information-variant', color: C.textSec, title: 'Our Mission', sub: 'About the ColdSync initiative' },
+        ].map((item, i) => (
+          <TouchableOpacity key={i} style={hub.navCard} onPress={() => navigation.navigate(item.screen)} activeOpacity={0.75}>
+            <View style={[hub.iconBox, { borderColor: item.color + '50', backgroundColor: item.color + '10' }]}>
+              <MaterialCommunityIcons name={item.icon} size={28} color={item.color} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 16 }}>
+              <Text style={hub.navTitle}>{item.title}</Text>
+              <Text style={hub.navSub}>{item.sub}</Text>
+            </View>
+            <View style={hub.chevronBox}>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={C.textMute} />
+            </View>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
     </View>
   );
 }
 
-// --- UNITS SCREEN ---
+const hub = StyleSheet.create({
+  signOutBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.redDim, borderWidth: 1, borderColor: C.red + '30', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  signOutText: { color: C.red, fontSize: 11, fontWeight: '700' },
+  navCard: { marginHorizontal: 20, marginBottom: 12, backgroundColor: C.surface, borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: C.border },
+  iconBox: { width: 54, height: 54, borderRadius: 16, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  navTitle: { color: C.textPri, fontSize: 16, fontWeight: '800', marginBottom: 3 },
+  navSub: { color: C.textSec, fontSize: 12 },
+  chevronBox: { width: 28, height: 28, borderRadius: 8, backgroundColor: C.card, justifyContent: 'center', alignItems: 'center' },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// UNITS SCREEN
+// ═══════════════════════════════════════════════════════════════
 function UnitsScreen() {
   const [selectedBox, setSelectedBox] = useState(null);
-  const [liveBoxes, setLiveBoxes] = useState([]);
-  const systemState = useRef({}); 
+  const [liveBoxes, setLiveBoxes]     = useState([]);
+  const systemState = useRef({});
 
   const pushLog = (unitId, temp, type) => {
     if (systemState.current[unitId] === type) return;
-
     const logsRef = ref(db, 'logs');
-    const newLogRef = push(logsRef); 
-    
+    const newLogRef = push(logsRef);
     let logEntry = {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      user: "HARDWARE_SENSOR",
-      status: "active"
+      user: 'HARDWARE_SENSOR',
+      status: 'active',
     };
-
     if (type === 'BREACH') {
-      logEntry.title = "CRITICAL TEMP ALERT";
-      logEntry.desc = `Sensor ${unitId} detected ${temp}°C. Hardware mitigation engaged.`;
+      logEntry.title = 'CRITICAL TEMP ALERT';
+      logEntry.desc  = `Sensor ${unitId} detected ${temp}°C. Hardware mitigation engaged.`;
     } else if (type === 'STABLE') {
-      logEntry.title = "SYSTEM STABILIZED";
-      logEntry.desc = `Sensor ${unitId} recovered to ${temp}°C. Safety bounds restored.`;
+      logEntry.title = 'SYSTEM STABILIZED';
+      logEntry.desc  = `Sensor ${unitId} recovered to ${temp}°C. Safety bounds restored.`;
     }
-
     set(newLogRef, logEntry);
     systemState.current[unitId] = type;
   };
 
   useEffect(() => {
-    // REVISED: Listening to 'units' folder which matches your ESP32 upload path
     const boxesRef = ref(db, 'units');
     const unsubscribe = onValue(boxesRef, (snapshot) => {
       const data = snapshot.val();
@@ -337,98 +391,159 @@ function UnitsScreen() {
         const formattedData = Object.keys(data).map(key => {
           const box = data[key];
           const currentTemp = parseFloat(box.temp);
-
-          // Real-time Logic Trigger
           if (currentTemp > 8.0) {
             pushLog(key, currentTemp, 'BREACH');
           } else if (currentTemp <= 8.0 && systemState.current[key] === 'BREACH') {
             pushLog(key, currentTemp, 'STABLE');
           }
-
           return { id: key, ...box };
         });
         setLiveBoxes(formattedData);
       } else {
-        setLiveBoxes([]); // Prevents UI hanging if db is cleared
+        setLiveBoxes([]);
       }
     });
     return () => unsubscribe();
   }, []);
 
+  const isBreach = (box) => parseFloat(box.temp) > 8.0;
+
   return (
-    <View style={styles.container}>
-      <View style={styles.headerBar}>
-        <Text style={styles.mainLogoText}>ColdSync</Text>
-        <View style={styles.liveBadge}><View style={styles.pulse} /><Text style={styles.liveText}>SENSOR LIVE</Text></View>
-      </View>
-      
-      <ScrollView contentContainerStyle={styles.scrollArea}>
-        <Text style={styles.sectionTitle}>Inventory Health</Text>
-        <View style={styles.gridRow}>
-          {liveBoxes.length === 0 ? (
-            <Text style={[styles.heroSubtitle, {paddingHorizontal: 20}]}>Searching for active telemetry...</Text>
-          ) : (
-            liveBoxes.map((box) => (
-              <TouchableOpacity 
-                  key={box.id} 
+    <View style={gs.screen}>
+      <Header
+        title="ColdSync"
+        right={
+          <View style={units.liveBadge}>
+            <View style={units.pulseDot} />
+            <Text style={units.liveText}>SENSOR LIVE</Text>
+          </View>
+        }
+      />
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        <SectionHeader label="Inventory Health" />
+        {liveBoxes.length === 0 ? (
+          <View style={units.emptyState}>
+            <MaterialCommunityIcons name="radar" size={36} color={C.textMute} />
+            <Text style={units.emptyText}>Searching for active telemetry…</Text>
+          </View>
+        ) : (
+          <View style={units.grid}>
+            {liveBoxes.map((box) => {
+              const breach = isBreach(box);
+              const color  = breach ? C.red : C.accent;
+              return (
+                <TouchableOpacity
+                  key={box.id}
                   onPress={() => setSelectedBox(box)}
-                  style={[styles.boxCardFancy, { borderColor: box.temp > 8.0 ? '#FF4D4D' : '#00FFAD40' }]}
-              >
-                <View style={[styles.boxTitleWrapper, {backgroundColor: box.temp > 8.0 ? '#FF4D4D20' : '#112240'}]}>
-                  <Text style={styles.boxTitleText}>{box.id.toUpperCase()}</Text>
-                </View>
-                <View style={styles.tempContainer}>
-                  <Text style={[styles.bigTemp, { color: box.temp > 8.0 ? '#FF4D4D' : '#00FFAD' }]}>{box.temp}°C</Text>
-                  <Text style={[styles.statusMini, {color: box.temp > 8.0 ? '#FF4D4D' : '#00FFAD'}]}>{box.temp > 8.0 ? 'BREACH' : 'STABLE'}</Text>
-                </View>
-                <View style={[styles.detailsBtn, {backgroundColor: box.temp > 8.0 ? '#FF4D4D' : '#00FFAD20'}]}><Text style={styles.detailsBtnText}>HARDWARE FEED</Text></View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
+                  style={[units.card, { borderColor: color + '40' }]}
+                  activeOpacity={0.8}
+                >
+                  <View style={[units.cardHeader, { backgroundColor: color + '12' }]}>
+                    <Text style={[units.cardHeaderText, { color }]}>{box.id.toUpperCase()}</Text>
+                    <View style={[units.statusDot, { backgroundColor: color }]} />
+                  </View>
+                  <View style={units.tempBlock}>
+                    <Text style={[units.tempBig, { color }]}>{box.temp}°</Text>
+                    <Text style={units.tempUnit}>C</Text>
+                  </View>
+                  <View style={[units.cardFooter, { borderTopColor: color + '20' }]}>
+                    <Text style={[units.cardStatus, { color }]}>{breach ? '⚠ BREACH' : '✓ STABLE'}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
+      {/* Modal */}
       <Modal visible={!!selectedBox} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCardFancy}>
-            <Text style={styles.modalTitle}>SENSORS: {selectedBox?.id}</Text>
-            <View style={styles.graphContainer}>
-                <View style={styles.graphItem}>
-                    <PowerRing percentage={selectedBox?.powerUsed || 0} color={selectedBox?.temp > 8.0 ? '#FF4D4D' : '#4285F4'} />
-                    <Text style={styles.graphLabel}>BATTERY LOAD</Text>
-                </View>
-                <View style={styles.graphItem}>
-                    <PowerRing percentage={100 - (selectedBox?.powerUsed || 0)} color="#00FFAD" />
-                    <Text style={styles.graphLabel}>LIFE LEFT</Text>
-                </View>
+        <View style={units.overlay}>
+          <View style={units.modal}>
+            <View style={units.modalTopRow}>
+              <Text style={units.modalTitle}>SENSORS: {selectedBox?.id?.toUpperCase()}</Text>
+              <Pill
+                label={parseFloat(selectedBox?.temp) > 8 ? 'BREACH' : 'STABLE'}
+                color={parseFloat(selectedBox?.temp) > 8 ? C.red : C.accent}
+              />
             </View>
-            <View style={styles.diagGrid}>
-                <View style={styles.diagItem}><Text style={styles.mKey}>TEMP</Text><Text style={styles.mVal}>{selectedBox?.temp}°C</Text></View>
-                <View style={styles.diagItem}><Text style={styles.mKey}>HUMIDITY</Text><Text style={styles.mVal}>{selectedBox?.humidity || '45%'}</Text></View>
-                <View style={styles.diagItem}><Text style={styles.mKey}>PCM STATE</Text><Text style={styles.mVal}>{selectedBox?.temp > 8.0 ? 'CRITICAL' : 'OPTIMAL'}</Text></View>
-                <View style={styles.diagItem}><Text style={styles.mKey}>COOLING FAN</Text><Text style={styles.mVal}>{selectedBox?.temp > 8.0 ? 'ACTIVE' : 'IDLE'}</Text></View>
+            <View style={units.ringsRow}>
+              {[
+                { pct: selectedBox?.powerUsed || 0, color: parseFloat(selectedBox?.temp) > 8 ? C.red : C.blue, label: 'BATTERY LOAD' },
+                { pct: 100 - (selectedBox?.powerUsed || 0), color: C.accent, label: 'LIFE LEFT' },
+              ].map((r, i) => (
+                <View key={i} style={{ alignItems: 'center', gap: 8 }}>
+                  <PowerRing percentage={r.pct} color={r.color} />
+                  <Text style={units.ringLabel}>{r.label}</Text>
+                </View>
+              ))}
             </View>
-            <TouchableOpacity style={styles.closeBtnFancy} onPress={() => setSelectedBox(null)}><Text style={styles.closeBtnTextFancy}>CLOSE SYSTEM VIEW</Text></TouchableOpacity>
-        </View></View>
+            <View style={units.diagGrid}>
+              {[
+                { k: 'TEMP',        v: `${selectedBox?.temp}°C` },
+                { k: 'HUMIDITY',    v: selectedBox?.humidity || '45%' },
+                { k: 'PCM STATE',   v: parseFloat(selectedBox?.temp) > 8 ? 'CRITICAL' : 'OPTIMAL' },
+                { k: 'COOLING FAN', v: parseFloat(selectedBox?.temp) > 8 ? 'ACTIVE' : 'IDLE' },
+              ].map((d, i) => (
+                <View key={i} style={units.diagItem}>
+                  <Text style={units.diagKey}>{d.k}</Text>
+                  <Text style={units.diagVal}>{d.v}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity style={units.closeBtn} onPress={() => setSelectedBox(null)}>
+              <Text style={units.closeBtnText}>CLOSE</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
 }
 
-// --- TRANSIT PAGE ---
+const units = StyleSheet.create({
+  liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.accentDim, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: C.accent + '30' },
+  pulseDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.accent, marginRight: 6 },
+  liveText: { color: C.accent, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  emptyState: { alignItems: 'center', paddingVertical: 50, gap: 12 },
+  emptyText: { color: C.textSec, fontSize: 13 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 12 },
+  card: { width: '47%', backgroundColor: C.surface, borderRadius: 18, borderWidth: 1.5, overflow: 'hidden' },
+  cardHeader: { paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardHeaderText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  statusDot: { width: 7, height: 7, borderRadius: 3.5 },
+  tempBlock: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', paddingVertical: 18 },
+  tempBig: { fontSize: 38, fontWeight: '900', lineHeight: 42 },
+  tempUnit: { fontSize: 18, fontWeight: '700', color: C.textSec, marginBottom: 4 },
+  cardFooter: { borderTopWidth: 1, paddingVertical: 10, alignItems: 'center' },
+  cardStatus: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  overlay: { flex: 1, backgroundColor: 'rgba(6,8,15,0.92)', justifyContent: 'center', padding: 20 },
+  modal: { backgroundColor: C.surface, padding: 24, borderRadius: 28, borderWidth: 1, borderColor: C.borderHi },
+  modalTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { color: C.textPri, fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  ringsRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
+  ringLabel: { color: C.textMute, fontSize: 8, fontWeight: '900', letterSpacing: 1.5 },
+  diagGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+  diagItem: { width: '47%', backgroundColor: C.card, padding: 14, borderRadius: 12 },
+  diagKey: { color: C.textMute, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+  diagVal: { color: C.textPri, fontSize: 14, fontWeight: '800', marginTop: 4 },
+  closeBtn: { backgroundColor: C.accent, padding: 16, borderRadius: 12 },
+  closeBtnText: { textAlign: 'center', fontWeight: '900', color: C.bg, fontSize: 12, letterSpacing: 1.5 },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// TRANSIT SCREEN
+// ═══════════════════════════════════════════════════════════════
 function TransitScreen({ trackingId }) {
-  const [remarks, setRemarks] = useState("");
-  const [logs, setLogs] = useState([]);
+  const [remarks, setRemarks] = useState('');
+  const [logs, setLogs]       = useState([]);
 
   useEffect(() => {
     const logsRef = ref(db, 'logs');
     const unsubscribe = onValue(logsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const formattedLogs = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
-        })).reverse(); 
+        const formattedLogs = Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse();
         setLogs(formattedLogs);
       }
     });
@@ -436,94 +551,130 @@ function TransitScreen({ trackingId }) {
   }, []);
 
   const handleAddLog = () => {
-    if (remarks.trim() === "") return;
+    if (remarks.trim() === '') return;
     const logsRef = ref(db, 'logs');
     const newLogRef = push(logsRef);
-    set(newLogRef, { 
-      title: 'FIELD LOG ENTRY', 
-      desc: remarks, 
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 
-      user: 'USER_AUTH', 
-      status: 'active' 
+    set(newLogRef, {
+      title: 'FIELD LOG ENTRY',
+      desc: remarks,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      user: 'USER_AUTH',
+      status: 'active',
     });
-    setRemarks("");
+    setRemarks('');
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerBar}><Text style={styles.mainLogoText}>ColdSync</Text></View>
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.transitBody}>
-        <View style={styles.etaCardFancy}>
-          <View><Text style={styles.metLabel}>ESTIMATED ARRIVAL</Text><Text style={styles.etaTime}>Today, 14:30 IST</Text></View>
-          <MaterialCommunityIcons name="clock-fast" size={32} color="#00FFAD" />
-        </View>
-        <View style={styles.assetHeaderCardFancy}>
-          <Text style={styles.assetSub}>ASSET TRACKING ID</Text>
-          <Text style={styles.assetMain}>{trackingId || "CS-RVCE-01"}</Text>
-          <View style={styles.divider} />
-          <View style={styles.assetMetricsRow}>
-            <View><Text style={styles.metLabel}>STATUS</Text><Text style={styles.metVal}>IN-TRANSIT</Text></View>
-            <View><Text style={styles.metLabel}>DESTINATION</Text><Text style={styles.metVal}>RVCE CAMPUS</Text></View>
+    <View style={gs.screen}>
+      <Header title="ColdSync" />
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+
+        {/* ETA card */}
+        <View style={transit.etaCard}>
+          <View>
+            <Text style={transit.etaLabel}>ESTIMATED ARRIVAL</Text>
+            <Text style={transit.etaVal}>Today, 14:30 IST</Text>
+          </View>
+          <View style={transit.etaIcon}>
+            <MaterialCommunityIcons name="clock-fast" size={26} color={C.accent} />
           </View>
         </View>
-        
-        <Text style={styles.sectionTitle}>Chain of Custody Logs</Text>
-        <View style={styles.timelineCard}>
-          {logs.map((step, index) => (
-            <View key={step.id || index} style={styles.timelineRow}>
-              <View style={styles.timelineLeft}>
-                <View style={[styles.timelineDot, { backgroundColor: step.title === 'CRITICAL TEMP ALERT' ? '#FF4D4D' : '#00FFAD' }]} />
-                {index !== logs.length - 1 && <View style={styles.timelineLine} />}
-              </View>
-              <View style={styles.timelineRight}>
-                <View style={styles.stepHeader}>
-                  <Text style={[styles.stepTitle, {color: step.title === 'CRITICAL TEMP ALERT' ? '#FF4D4D' : '#FFF'}]}>{step.title}</Text>
-                  <Text style={styles.stepUser}>[{step.user}]</Text>
-                </View>
-                <Text style={styles.stepDesc}>{step.desc}</Text>
-                <Text style={styles.stepTime}>{step.time}</Text>
-              </View>
+
+        {/* Asset card */}
+        <View style={[gs.glassCard, { marginTop: 12, marginBottom: 0 }]}>
+          <Text style={gs.cardLabel}>ASSET TRACKING ID</Text>
+          <Text style={transit.assetId}>{trackingId || 'CS-RVCE-01'}</Text>
+          <View style={transit.divider} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View>
+              <Text style={transit.metKey}>STATUS</Text>
+              <Text style={transit.metVal}>IN-TRANSIT</Text>
             </View>
-          ))}
+            <View>
+              <Text style={transit.metKey}>DESTINATION</Text>
+              <Text style={transit.metVal}>RVCE CAMPUS</Text>
+            </View>
+          </View>
         </View>
-        
-        <View style={styles.feedbackCard}>
-          <Text style={styles.cardTitle}>Add Field Log Entry</Text>
-          <TextInput style={styles.remarksInput} placeholder="Type log details..." placeholderTextColor="#495670" multiline value={remarks} onChangeText={setRemarks} />
-          <TouchableOpacity style={styles.submitBtn} onPress={handleAddLog}><Text style={styles.submitBtnText}>UPDATE TIMELINE</Text></TouchableOpacity>
+
+        <SectionHeader label="Chain of Custody" />
+
+        {/* Timeline */}
+        <View style={gs.glassCard}>
+          {logs.map((step, index) => {
+            const isAlert = step.title === 'CRITICAL TEMP ALERT';
+            const dotColor = isAlert ? C.red : C.accent;
+            return (
+              <View key={step.id || index} style={transit.row}>
+                <View style={transit.timelineCol}>
+                  <View style={[transit.dot, { backgroundColor: dotColor }]} />
+                  {index !== logs.length - 1 && <View style={transit.line} />}
+                </View>
+                <View style={transit.content}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                    <Text style={[transit.stepTitle, { color: isAlert ? C.red : C.textPri }]}>{step.title}</Text>
+                    <Text style={transit.stepUser}>{step.user}</Text>
+                  </View>
+                  <Text style={transit.stepDesc}>{step.desc}</Text>
+                  <Text style={transit.stepTime}>{step.time}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Log entry */}
+        <View style={[gs.glassCard, { marginTop: 16 }]}>
+          <Text style={gs.cardLabel}>ADD FIELD LOG</Text>
+          <TextInput
+            style={transit.input}
+            placeholder="Type log details…"
+            placeholderTextColor={C.textMute}
+            multiline
+            value={remarks}
+            onChangeText={setRemarks}
+          />
+          <TouchableOpacity style={transit.addBtn} onPress={handleAddLog}>
+            <MaterialCommunityIcons name="plus" size={16} color={C.bg} />
+            <Text style={transit.addBtnText}>UPDATE TIMELINE</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
   );
 }
 
-// --- SIMPLE LABELED BAR CHART ---
-const SimpleBarChart = ({ data }) => {
-  const maxVal = Math.max(...data.map(d => d.value), 1);
-  return (
-    <View style={{ gap: 12 }}>
-      {data.map((item, i) => (
-        <View key={i}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-            <Text style={{ color: '#8892B0', fontSize: 11, fontWeight: '600', flex: 1 }}>{item.label}</Text>
-            <Text style={{ color: item.color, fontSize: 11, fontWeight: '800', marginLeft: 8 }}>{item.display}</Text>
-          </View>
-          <View style={{ height: 10, backgroundColor: '#112240', borderRadius: 5, overflow: 'hidden' }}>
-            <View style={{ height: '100%', width: `${(item.value / maxVal) * 100}%`, backgroundColor: item.color, borderRadius: 5 }} />
-          </View>
-          {item.note ? <Text style={{ color: '#495670', fontSize: 9, marginTop: 3 }}>{item.note}</Text> : null}
-        </View>
-      ))}
-    </View>
-  );
-};
+const transit = StyleSheet.create({
+  etaCard: { backgroundColor: C.accentDim, padding: 22, borderRadius: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: C.accent + '30' },
+  etaLabel: { color: C.textSec, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 },
+  etaVal: { color: C.accent, fontSize: 22, fontWeight: '900' },
+  etaIcon: { width: 48, height: 48, borderRadius: 14, backgroundColor: C.accent + '20', justifyContent: 'center', alignItems: 'center' },
+  assetId: { color: C.textPri, fontSize: 24, fontWeight: '900', marginTop: 4 },
+  divider: { height: 1, backgroundColor: C.border, marginVertical: 14 },
+  metKey: { color: C.textMute, fontSize: 9, fontWeight: '700', letterSpacing: 1 },
+  metVal: { color: C.textPri, fontSize: 13, fontWeight: '800', marginTop: 3 },
+  row: { flexDirection: 'row', minHeight: 72 },
+  timelineCol: { alignItems: 'center', marginRight: 14, width: 18 },
+  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
+  line: { width: 1, flex: 1, backgroundColor: C.border },
+  content: { flex: 1, paddingBottom: 16 },
+  stepTitle: { fontSize: 12, fontWeight: '800' },
+  stepUser: { color: C.blue, fontSize: 8, fontWeight: '700' },
+  stepDesc: { color: C.textSec, fontSize: 11, marginTop: 2, lineHeight: 16 },
+  stepTime: { color: C.textMute, fontSize: 10, marginTop: 4 },
+  input: { backgroundColor: C.bg, borderRadius: 12, height: 64, padding: 14, color: C.textPri, marginTop: 12, marginBottom: 12, fontSize: 13, borderWidth: 1, borderColor: C.border },
+  addBtn: { backgroundColor: C.accent, padding: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  addBtnText: { color: C.bg, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+});
 
-// --- AUDIT SCREEN ---
+// ═══════════════════════════════════════════════════════════════
+// AUDIT SCREEN
+// ═══════════════════════════════════════════════════════════════
 function AuditScreen() {
-  const [stats, setStats]       = useState({ failures: 0, handled: 0, efficiency: 100 });
-  const [avgTemp, setAvgTemp]   = useState(0);
-  const [allLogs, setAllLogs]   = useState([]);
-  const [units, setUnits]       = useState([]);
+  const [stats, setStats]           = useState({ failures: 0, handled: 0, efficiency: 100 });
+  const [avgTemp, setAvgTemp]       = useState(0);
+  const [allLogs, setAllLogs]       = useState([]);
+  const [units, setUnits]           = useState([]);
   const [generating, setGenerating] = useState(false);
   const [reportReady, setReportReady] = useState(false);
 
@@ -536,8 +687,8 @@ function AuditScreen() {
       if (data) {
         const logArray = Object.values(data);
         setAllLogs(logArray);
-        const breaches  = logArray.filter(l => l.title === "CRITICAL TEMP ALERT").length;
-        const mitigated = logArray.filter(l => l.title === "SYSTEM STABILIZED").length;
+        const breaches  = logArray.filter(l => l.title === 'CRITICAL TEMP ALERT').length;
+        const mitigated = logArray.filter(l => l.title === 'SYSTEM STABILIZED').length;
         const rate = breaches > 0 ? Math.round((mitigated / breaches) * 100) : 100;
         setStats({ failures: breaches, handled: mitigated, efficiency: rate });
       }
@@ -561,11 +712,9 @@ function AuditScreen() {
   const pcmHealth   = units.filter(u => parseFloat(u.temp) <= 8.0).length;
   const pcmPct      = units.length > 0 ? Math.round((pcmHealth / units.length) * 100) : 100;
 
-  // Simple risk: based on failure count vs handled
   const riskLevel = stats.failures === 0 ? 'LOW' : stats.efficiency < 70 ? 'HIGH' : 'MEDIUM';
-  const riskColor = riskLevel === 'HIGH' ? '#FF4D4D' : riskLevel === 'MEDIUM' ? '#FFB347' : '#00FFAD';
+  const riskColor = riskLevel === 'HIGH' ? C.red : riskLevel === 'MEDIUM' ? C.amber : C.accent;
 
-  // --- PDF Report ---
   const generateReport = useCallback(async () => {
     setGenerating(true);
     try {
@@ -653,7 +802,6 @@ function AuditScreen() {
 </div></body></html>`;
 
       if (Platform.OS === 'web') {
-        // On web, open the clean HTML report in a new tab so only report content is printed
         const blob = new Blob([html], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const win = window.open(url, '_blank');
@@ -675,73 +823,55 @@ function AuditScreen() {
   }, [stats, avgTemp, allLogs, units, riskLevel, riskColor, fieldLogs, uptimeScore, pcmPct]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerBar}>
-        <Text style={styles.mainLogoText}>ColdSync</Text>
-        <View style={styles.auditBadge}><Text style={styles.auditBadgeText}>LIVE AUDIT</Text></View>
-      </View>
+    <View style={gs.screen}>
+      <Header title="ColdSync" right={<Pill label="LIVE AUDIT" icon="pulse" color={C.accent} />} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
 
-      <ScrollView contentContainerStyle={[styles.scrollArea, { paddingBottom: 50 }]}>
-
-        {/* Page title */}
-        <View style={styles.welcomeHeader}>
-          <Text style={styles.grandWelcomeText}>REAL-TIME</Text>
-          <Text style={styles.brandTitleText}>AUDIT</Text>
-          <View style={styles.accentLine} />
-          <Text style={styles.heroSubtitle}>Live diagnostics from your active shipment</Text>
+        <View style={{ paddingHorizontal: 20, paddingTop: 32, paddingBottom: 20 }}>
+          <Text style={gs.pageEyebrow}>REAL-TIME</Text>
+          <Text style={gs.pageTitle}>AUDIT</Text>
+          <View style={gs.accentBar} />
+          <Text style={gs.pageSub}>Live diagnostics from your active shipment</Text>
         </View>
 
-        {/* 4 KPI cards */}
-        <View style={styles.auditGrid}>
-          <View style={[styles.statCard, { borderColor: '#FF4D4D30' }]}>
-            <MaterialCommunityIcons name="alert-circle" size={16} color="#FF4D4D" style={{ marginBottom: 4 }} />
-            <Text style={styles.statLabel}>BREACHES</Text>
-            <Text style={[styles.statValue, { color: '#FF4D4D' }]}>{stats.failures}</Text>
-            <Text style={styles.statFooter}>Thermal violations</Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: '#00FFAD30' }]}>
-            <MaterialCommunityIcons name="shield-check" size={16} color="#00FFAD" style={{ marginBottom: 4 }} />
-            <Text style={styles.statLabel}>NEUTRALIZED</Text>
-            <Text style={[styles.statValue, { color: '#00FFAD' }]}>{stats.handled}</Text>
-            <Text style={styles.statFooter}>Auto-mitigated</Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: '#4285F430' }]}>
-            <MaterialCommunityIcons name="thermometer" size={16} color="#4285F4" style={{ marginBottom: 4 }} />
-            <Text style={styles.statLabel}>AVG TEMP</Text>
-            <Text style={[styles.statValue, { color: parseFloat(avgTemp) > 8 ? '#FF4D4D' : '#FFF' }]}>{avgTemp}°C</Text>
-            <Text style={styles.statFooter}>Safe: 2–8°C</Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: '#FFB34730' }]}>
-            <MaterialCommunityIcons name="note-text" size={16} color="#FFB347" style={{ marginBottom: 4 }} />
-            <Text style={styles.statLabel}>FIELD LOGS</Text>
-            <Text style={[styles.statValue, { color: '#FFB347' }]}>{fieldLogs}</Text>
-            <Text style={styles.statFooter}>Manual entries</Text>
-          </View>
-        </View>
-
-        {/* CHART 1 — System Health (3 bars, clearly labeled) */}
-        <View style={styles.auditSection}>
-          <Text style={styles.sectionTitle}>SYSTEM HEALTH</Text>
-          <View style={styles.chartCard}>
-            <Text style={auditChartStyles.chartTitle}>How well is the system performing?</Text>
-            <Text style={auditChartStyles.chartSub}>Each bar shows a % score — 100% is perfect.</Text>
-            <View style={{ marginTop: 16 }}>
-              <SimpleBarChart data={[
-                { label: 'Cooling Efficiency — how often breaches were fixed', value: stats.efficiency, display: `${stats.efficiency}%`, color: stats.efficiency >= 90 ? '#00FFAD' : stats.efficiency >= 70 ? '#FFB347' : '#FF4D4D', note: `${stats.handled} of ${stats.failures} breach events resolved` },
-                { label: 'System Uptime — time spent in stable operation',      value: uptimeScore,       display: `${uptimeScore}%`,       color: '#4285F4', note: 'Drops 2pts per unresolved breach' },
-                { label: 'PCM Integrity — units within safe 2–8°C range',       value: pcmPct,            display: `${pcmPct}%`,            color: '#FFB347', note: `${pcmHealth} of ${units.length} units in safe zone` },
-              ]} />
+        {/* KPI Grid */}
+        <View style={audit.kpiGrid}>
+          {[
+            { icon: 'alert-circle',  label: 'BREACHES',    value: stats.failures, color: C.red,   sub: 'Thermal violations' },
+            { icon: 'shield-check',  label: 'NEUTRALIZED', value: stats.handled,  color: C.accent, sub: 'Auto-mitigated' },
+            { icon: 'thermometer',   label: 'AVG TEMP',    value: `${avgTemp}°C`, color: parseFloat(avgTemp) > 8 ? C.red : C.textPri, sub: 'Safe: 2–8°C' },
+            { icon: 'note-text',     label: 'FIELD LOGS',  value: fieldLogs,      color: C.amber,  sub: 'Manual entries' },
+          ].map((k, i) => (
+            <View key={i} style={[audit.kpiCard, { borderColor: k.color + '25' }]}>
+              <MaterialCommunityIcons name={k.icon} size={15} color={k.color} style={{ marginBottom: 6 }} />
+              <Text style={audit.kpiLabel}>{k.label}</Text>
+              <Text style={[audit.kpiVal, { color: k.color }]}>{k.value}</Text>
+              <Text style={audit.kpiSub}>{k.sub}</Text>
             </View>
+          ))}
+        </View>
+
+        {/* System Health */}
+        <SectionHeader label="System Health" />
+        <View style={[gs.glassCard, { marginHorizontal: 20 }]}>
+          <Text style={audit.chartTitle}>Performance metrics at a glance</Text>
+          <Text style={audit.chartSub}>100% = perfect operation</Text>
+          <View style={{ marginTop: 16 }}>
+            <SimpleBarChart data={[
+              { label: 'Cooling Efficiency', value: stats.efficiency, display: `${stats.efficiency}%`, color: stats.efficiency >= 90 ? C.accent : stats.efficiency >= 70 ? C.amber : C.red, note: `${stats.handled} of ${stats.failures} breach events resolved` },
+              { label: 'System Uptime',      value: uptimeScore,      display: `${uptimeScore}%`,      color: C.blue,  note: 'Drops 2pts per unresolved breach' },
+              { label: 'PCM Integrity',      value: pcmPct,           display: `${pcmPct}%`,           color: C.amber, note: `${pcmHealth} of ${units.length} units in safe zone` },
+            ]} />
           </View>
         </View>
 
-        {/* CHART 2 — Per-unit temperatures (only shown when units exist) */}
+        {/* Unit temperatures */}
         {units.length > 0 && (
-          <View style={styles.auditSection}>
-            <Text style={styles.sectionTitle}>UNIT TEMPERATURES</Text>
-            <View style={styles.chartCard}>
-              <Text style={auditChartStyles.chartTitle}>Live temperature per sensor unit</Text>
-              <Text style={auditChartStyles.chartSub}>Safe range is 2°C – 8°C. Red = above safe ceiling.</Text>
+          <>
+            <SectionHeader label="Unit Temperatures" />
+            <View style={[gs.glassCard, { marginHorizontal: 20 }]}>
+              <Text style={audit.chartTitle}>Live temperature per sensor unit</Text>
+              <Text style={audit.chartSub}>Safe range: 2°C – 8°C</Text>
               <View style={{ marginTop: 16 }}>
                 <SimpleBarChart data={units.map((u, i) => {
                   const t = parseFloat(u.temp);
@@ -749,100 +879,160 @@ function AuditScreen() {
                     label: `Unit-${String(i+1).padStart(2,'0')}`,
                     value: t,
                     display: `${t.toFixed(1)}°C`,
-                    color: t > 8 ? '#FF4D4D' : t > 6 ? '#FFB347' : '#00FFAD',
+                    color: t > 8 ? C.red : t > 6 ? C.amber : C.accent,
                     note: t > 8 ? 'BREACH — above safe ceiling' : t > 6 ? 'CAUTION — approaching limit' : 'STABLE — within safe zone',
                   };
                 })} />
               </View>
-              {/* Legend */}
               <View style={{ flexDirection: 'row', gap: 14, marginTop: 14, flexWrap: 'wrap' }}>
-                {[['#00FFAD','Stable (≤6°C)'],['#FFB347','Caution (6–8°C)'],['#FF4D4D','Breach (>8°C)']].map(([c,l]) => (
+                {[[C.accent,'Stable (≤6°C)'],[C.amber,'Caution (6–8°C)'],[C.red,'Breach (>8°C)']].map(([c, l]) => (
                   <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                     <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c }} />
-                    <Text style={{ color: '#8892B0', fontSize: 10 }}>{l}</Text>
+                    <Text style={{ color: C.textSec, fontSize: 10 }}>{l}</Text>
                   </View>
                 ))}
               </View>
             </View>
-          </View>
+          </>
         )}
 
-        {/* Risk banner */}
-        <View style={styles.auditSection}>
-          <Text style={styles.sectionTitle}>RISK ASSESSMENT</Text>
-          <View style={[auditChartStyles.riskCard, { borderColor: riskColor, backgroundColor: riskColor + '12' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View>
-                <Text style={[auditChartStyles.riskLevel, { color: riskColor }]}>RISK LEVEL: {riskLevel}</Text>
-                <Text style={auditChartStyles.riskDesc}>
-                  {riskLevel === 'HIGH'
-                    ? 'Critical — immediate hardware inspection required before next transit phase.'
-                    : riskLevel === 'MEDIUM'
-                    ? 'Moderate — monitor closely and pre-cool units before next dispatch.'
-                    : 'System is stable. No intervention required. Continue current protocols.'}
-                </Text>
-              </View>
-              <MaterialCommunityIcons
-                name={riskLevel === 'HIGH' ? 'alert-octagram' : riskLevel === 'MEDIUM' ? 'alert' : 'check-circle'}
-                size={40} color={riskColor} style={{ marginLeft: 12 }}
-              />
+        {/* Risk */}
+        <SectionHeader label="Risk Assessment" />
+        <View style={[audit.riskCard, { borderColor: riskColor, backgroundColor: riskColor + '10', marginHorizontal: 20 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flex: 1, marginRight: 16 }}>
+              <Text style={[audit.riskLevel, { color: riskColor }]}>RISK LEVEL: {riskLevel}</Text>
+              <Text style={audit.riskDesc}>
+                {riskLevel === 'HIGH'
+                  ? 'Critical — immediate hardware inspection required before next transit phase.'
+                  : riskLevel === 'MEDIUM'
+                  ? 'Moderate — monitor closely and pre-cool units before next dispatch.'
+                  : 'System is stable. No intervention required. Continue current protocols.'}
+              </Text>
             </View>
+            <MaterialCommunityIcons
+              name={riskLevel === 'HIGH' ? 'alert-octagram' : riskLevel === 'MEDIUM' ? 'alert' : 'check-circle'}
+              size={40} color={riskColor}
+            />
           </View>
         </View>
 
         {/* Unit status list */}
         {units.length > 0 && (
-          <View style={styles.auditSection}>
-            <Text style={styles.sectionTitle}>UNIT STATUS</Text>
-            {units.map((u, i) => {
-              const t = parseFloat(u.temp);
-              const ok = t <= 8.0;
-              return (
-                <View key={i} style={[styles.unitRow, { borderColor: ok ? '#00FFAD20' : '#FF4D4D30' }]}>
-                  <View style={[styles.unitDot, { backgroundColor: ok ? '#00FFAD' : '#FF4D4D' }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.unitName}>Unit-{String(i + 1).padStart(2, '0')}</Text>
-                    <Text style={styles.unitMeta}>{ok ? 'PCM OPTIMAL' : 'PCM CRITICAL'} · {u.powerUsed || 'N/A'}% load</Text>
+          <>
+            <SectionHeader label="Unit Status" />
+            <View style={{ paddingHorizontal: 20 }}>
+              {units.map((u, i) => {
+                const t  = parseFloat(u.temp);
+                const ok = t <= 8.0;
+                const col = ok ? C.accent : C.red;
+                return (
+                  <View key={i} style={[audit.unitRow, { borderColor: col + '25' }]}>
+                    <View style={[audit.unitDot, { backgroundColor: col }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={audit.unitName}>Unit-{String(i + 1).padStart(2, '0')}</Text>
+                      <Text style={audit.unitMeta}>{ok ? 'PCM OPTIMAL' : 'PCM CRITICAL'} · {u.powerUsed || 'N/A'}% load</Text>
+                    </View>
+                    <Text style={[audit.unitTemp, { color: col }]}>{t.toFixed(1)}°C</Text>
                   </View>
-                  <Text style={[styles.unitTemp, { color: ok ? '#00FFAD' : '#FF4D4D' }]}>{t.toFixed(1)}°C</Text>
-                </View>
-              );
-            })}
-          </View>
+                );
+              })}
+            </View>
+          </>
         )}
 
-        {/* Generate Report */}
-        <TouchableOpacity
-          style={[styles.exportBtn, generating && { opacity: 0.7 }, reportReady && { backgroundColor: '#00CC8E' }]}
-          onPress={generateReport}
-          disabled={generating}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name={reportReady ? 'check' : 'file-chart'} size={20} color="#020C1B" />
-          <Text style={styles.exportBtnText}>
-            {reportReady ? 'REPORT SHARED ✓' : generating ? 'GENERATING PDF...' : 'GENERATE AUDIT REPORT'}
-          </Text>
-        </TouchableOpacity>
+        {/* Actions */}
+        <View style={{ paddingHorizontal: 20, marginTop: 28, gap: 12 }}>
+          <TouchableOpacity
+            style={[audit.exportBtn, generating && { opacity: 0.6 }, reportReady && { backgroundColor: '#00CC8E' }]}
+            onPress={generateReport}
+            disabled={generating}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name={reportReady ? 'check' : 'file-chart'} size={18} color={C.bg} />
+            <Text style={audit.exportText}>
+              {reportReady ? 'REPORT SHARED ✓' : generating ? 'GENERATING PDF…' : 'GENERATE AUDIT REPORT'}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.syncBtn} onPress={() => alert('Audit Data Synced to Corporate Database')}>
-          <MaterialCommunityIcons name="cloud-upload" size={18} color="#00FFAD" />
-          <Text style={styles.syncBtnText}>SYNC TO CLOUD</Text>
-        </TouchableOpacity>
-
+          <TouchableOpacity style={audit.syncBtn} onPress={() => alert('Audit Data Synced to Corporate Database')}>
+            <MaterialCommunityIcons name="cloud-upload" size={16} color={C.accent} />
+            <Text style={audit.syncText}>SYNC TO CLOUD</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-// --- MAIN NAVIGATION AND APP ENTRY ---
+const audit = StyleSheet.create({
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20, gap: 0 },
+  kpiCard: { width: '48%', backgroundColor: C.surface, padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1 },
+  kpiLabel: { color: C.textMute, fontSize: 9, fontWeight: '800', letterSpacing: 1, marginBottom: 4 },
+  kpiVal: { fontSize: 26, fontWeight: '900' },
+  kpiSub: { color: C.textMute, fontSize: 9, marginTop: 4 },
+  chartTitle: { color: C.textPri, fontSize: 13, fontWeight: '800', marginBottom: 2 },
+  chartSub: { color: C.textMute, fontSize: 10 },
+  riskCard: { borderRadius: 16, padding: 20, borderWidth: 1.5 },
+  riskLevel: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5, marginBottom: 6 },
+  riskDesc: { color: C.textSec, fontSize: 12, lineHeight: 18 },
+  unitRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, gap: 12 },
+  unitDot: { width: 9, height: 9, borderRadius: 5 },
+  unitName: { color: C.textPri, fontSize: 13, fontWeight: '700' },
+  unitMeta: { color: C.textMute, fontSize: 10, marginTop: 2 },
+  unitTemp: { fontSize: 16, fontWeight: '900' },
+  exportBtn: { backgroundColor: C.accent, padding: 17, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
+  exportText: { color: C.bg, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+  syncBtn: { padding: 14, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, backgroundColor: C.accentDim, borderWidth: 1, borderColor: C.accent + '30' },
+  syncText: { color: C.accent, fontWeight: '700', fontSize: 12, letterSpacing: 1 },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SHARED HEADER COMPONENT
+// ═══════════════════════════════════════════════════════════════
+const Header = ({ title, right }) => (
+  <View style={gs.header}>
+    <View style={gs.headerLeft}>
+      <MaterialCommunityIcons name="snowflake" size={18} color={C.accent} style={{ marginRight: 6 }} />
+      <Text style={gs.headerTitle}>{title}</Text>
+    </View>
+    {right || null}
+  </View>
+);
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL STYLES
+// ═══════════════════════════════════════════════════════════════
+const gs = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg },
+  header: { paddingTop: 58, paddingBottom: 14, paddingHorizontal: 20, backgroundColor: C.surface, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: C.border },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  headerTitle: { color: C.accent, fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  pageEyebrow: { color: C.textMute, fontSize: 11, fontWeight: '800', letterSpacing: 3.5, marginBottom: 4 },
+  pageTitle: { color: C.textPri, fontSize: 44, fontWeight: '900', letterSpacing: -1, lineHeight: 46 },
+  accentBar: { width: 32, height: 3, backgroundColor: C.accent, borderRadius: 2, marginTop: 10, marginBottom: 14 },
+  pageSub: { color: C.textSec, fontSize: 13, lineHeight: 20 },
+  glassCard: { backgroundColor: C.surface, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: C.border, marginBottom: 0 },
+  cardLabel: { color: C.textMute, fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 8 },
+  bodyText: { color: C.textSec, fontSize: 13, lineHeight: 21 },
+  statBig: { fontSize: 24, fontWeight: '900' },
+  statLabel: { color: C.textPri, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  statSub: { color: C.textMute, fontSize: 10, marginTop: 2 },
+  solRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13 },
+  solIconBox: { width: 34, height: 34, borderRadius: 10, backgroundColor: C.accentDim, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  solText: { flex: 1, color: C.textPri, fontSize: 13, fontWeight: '600' },
+  quote: { color: C.textMute, fontStyle: 'italic', textAlign: 'center', marginVertical: 36, paddingHorizontal: 40, fontSize: 12, lineHeight: 18 },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ROOT NAV
+// ═══════════════════════════════════════════════════════════════
 const Tab = createBottomTabNavigator();
 
 export default function App() {
-  const [user, setUser] = useState(null); // { name, trackingId }
+  const [user, setUser] = useState(null);
 
-  if (!user) {
-    return <AuthScreen onAuth={(u) => setUser(u)} />;
-  }
+  if (!user) return <AuthScreen onAuth={(u) => setUser(u)} />;
 
   return (
     <NavigationContainer>
@@ -850,187 +1040,28 @@ export default function App() {
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
-          tabBarStyle: styles.tabStyle,
-          tabBarActiveTintColor: '#00FFAD',
-          tabBarInactiveTintColor: '#495670',
+          tabBarStyle: {
+            backgroundColor: C.surface,
+            borderTopColor: C.border,
+            height: 76,
+            paddingBottom: 18,
+            paddingTop: 8,
+          },
+          tabBarActiveTintColor: C.accent,
+          tabBarInactiveTintColor: C.textMute,
+          tabBarLabelStyle: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5, marginTop: 2 },
         }}
       >
-        <Tab.Screen name="Home" options={{ tabBarIcon: ({color}) => <MaterialCommunityIcons name="home-variant" size={24} color={color} /> }}>
+        <Tab.Screen name="Home" options={{ tabBarIcon: ({ color }) => <MaterialCommunityIcons name="home-variant" size={24} color={color} /> }}>
           {({ navigation }) => <HubScreen navigation={navigation} user={user} onSignOut={() => setUser(null)} />}
         </Tab.Screen>
-        <Tab.Screen name="Units" component={UnitsScreen} options={{ tabBarIcon: ({color}) => <MaterialCommunityIcons name="view-grid" size={24} color={color} /> }} />
-        <Tab.Screen name="Transit" options={{ tabBarIcon: ({color}) => <MaterialCommunityIcons name="radar" size={24} color={color} /> }}>
+        <Tab.Screen name="Units" component={UnitsScreen} options={{ tabBarIcon: ({ color }) => <MaterialCommunityIcons name="view-grid" size={24} color={color} /> }} />
+        <Tab.Screen name="Transit" options={{ tabBarIcon: ({ color }) => <MaterialCommunityIcons name="radar" size={24} color={color} /> }}>
           {() => <TransitScreen trackingId={user.trackingId} />}
         </Tab.Screen>
-        <Tab.Screen name="Audit" component={AuditScreen} options={{ tabBarIcon: ({color}) => <MaterialCommunityIcons name="file-chart" size={24} color={color} /> }} />
-        <Tab.Screen name="Mission" component={MissionScreen} options={{ tabBarIcon: ({color}) => <MaterialCommunityIcons name="shield-check" size={24} color={color} /> }} />
+        <Tab.Screen name="Audit" component={AuditScreen} options={{ tabBarIcon: ({ color }) => <MaterialCommunityIcons name="file-chart" size={24} color={color} /> }} />
+        <Tab.Screen name="Mission" component={MissionScreen} options={{ tabBarIcon: ({ color }) => <MaterialCommunityIcons name="shield-check" size={24} color={color} /> }} />
       </Tab.Navigator>
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#020C1B' },
-  headerBar: { paddingTop: 60, paddingBottom: 15, paddingHorizontal: 20, backgroundColor: '#0A192F', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#112240' },
-  mainLogoText: { color: '#00FFAD', fontSize: 24, fontWeight: '900', letterSpacing: -1 },
-  scrollArea: { paddingBottom: 30 },
-  welcomeHeader: { marginTop: 40, marginBottom: 40, paddingHorizontal: 20 },
-  grandWelcomeText: { color: '#8892B0', fontSize: 14, fontWeight: 'bold', letterSpacing: 3 },
-  brandTitleText: { color: '#FFF', fontSize: 48, fontWeight: '900', letterSpacing: 1 },
-  accentLine: { width: 40, height: 4, backgroundColor: '#00FFAD', marginTop: 12 },
-  heroSubtitle: { color: '#8892B0', fontSize: 14, marginTop: 15, lineHeight: 22 },
-  gridRow: { flexDirection: 'row',justifyContent: 'space-between',paddingHorizontal: 20,},
-  challengeRow: { flexDirection: 'row',justifyContent: 'space-between',marginHorizontal: 20,},
-  boxCardFancy: { width: '47%', backgroundColor: '#0A192F', borderRadius: 16, borderWidth: 1.5, height: 190, marginBottom: 15, justifyContent: 'space-between', overflow: 'hidden', elevation: 10 },
-  boxTitleWrapper: { padding: 12 },
-  boxTitleText: { color: '#FFF', fontSize: 10, fontWeight: 'bold', textAlign: 'center', letterSpacing: 1 },
-  tempContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  bigTemp: { fontSize: 28, fontWeight: '900' },
-  statusMini: { fontSize: 8, fontWeight: 'bold', marginTop: 4, letterSpacing: 1 },
-  detailsBtn: { padding: 14 },
-  detailsBtnText: { color: '#FFF', fontSize: 8, textAlign: 'center', fontWeight: '900', letterSpacing: 0.5 },
-  liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#112240', padding: 6, borderRadius: 8 },
-  liveText: { color: '#00FFAD', fontSize: 10, fontWeight: 'bold' },
-  pulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00FFAD', marginRight: 6 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(2, 12, 27, 0.95)', justifyContent: 'center', padding: 20 },
-  modalCardFancy: { backgroundColor: '#0A192F', padding: 30, borderRadius: 32, borderWidth: 1, borderColor: '#1E293B' },
-  modalTitle: { color: '#FFF', fontSize: 18, fontWeight: '900', marginBottom: 15, letterSpacing: 1 },
-  graphContainer: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 20 },
-  graphItem: { alignItems: 'center' },
-  graphLabel: { color: '#8892B0', fontSize: 8, fontWeight: '900', marginTop: 10 },
-  ringOutline: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#020C1B', overflow: 'hidden', justifyContent: 'flex-end', borderWidth: 1, borderColor: '#1E293B' },
-  ringFill: { width: '100%', position: 'absolute' },
-  ringText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, width: '100%', textAlign: 'center', marginBottom: 25 },
-  diagGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  diagItem: { width: '48%', backgroundColor: '#112240', padding: 15, borderRadius: 12, marginBottom: 10 },
-  mKey: { color: '#8892B0', fontSize: 9, fontWeight: 'bold' },
-  mVal: { color: '#FFF', fontSize: 13, fontWeight: 'bold', marginTop: 2 },
-  closeBtnFancy: { backgroundColor: '#00FFAD', padding: 18, borderRadius: 12, marginTop: 20 },
-  closeBtnTextFancy: { textAlign: 'center', fontWeight: '900', color: '#020C1B', fontSize: 12, letterSpacing: 1 },
-  transitBody: { flex: 1, padding: 20 },
-  etaCardFancy: { backgroundColor: '#00FFAD08', padding: 25, borderRadius: 24, marginBottom: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#00FFAD30' },
-  etaTime: { color: '#00FFAD', fontSize: 24, fontWeight: '900' },
-  assetHeaderCardFancy: { backgroundColor: '#112240', padding: 25, borderRadius: 24, marginBottom: 10 },
-  assetSub: { color: '#8892B0', fontSize: 10, fontWeight: 'bold' },
-  assetMain: { color: '#FFF', fontSize: 24, fontWeight: '900', marginTop: 5 },
-  divider: { height: 1, backgroundColor: '#1E293B', marginVertical: 15 },
-  assetMetricsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  metLabel: { color: '#495670', fontSize: 9, fontWeight: 'bold' },
-  metVal: { color: '#FFF', fontSize: 12, fontWeight: 'bold', marginTop: 3 },
-  timelineCard: { backgroundColor: '#0A192F', padding: 20, borderRadius: 20, marginBottom: 25 },
-  timelineRow: { flexDirection: 'row', minHeight: 80 },
-  timelineLeft: { alignItems: 'center', marginRight: 15 },
-  timelineDot: { width: 10, height: 10, borderRadius: 5, marginTop: 5 },
-  timelineLine: { width: 1, flex: 1, backgroundColor: '#1E293B' },
-  timelineRight: { flex: 1 },
-  stepHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  stepTitle: { fontSize: 13, fontWeight: '900', color: '#FFF' },
-  stepUser: { color: '#4285F4', fontSize: 8, fontWeight: 'bold' },
-  stepDesc: { color: '#8892B0', fontSize: 11, marginTop: 4 },
-  stepTime: { color: '#495670', fontSize: 10, marginTop: 4 },
-  feedbackCard: { backgroundColor: '#112240', padding: 20, borderRadius: 20, marginBottom: 30 },
-  cardTitle: { color: '#FFF', fontSize: 12, fontWeight: 'bold', marginBottom: 15 },
-  remarksInput: { backgroundColor: '#020C1B', borderRadius: 12, height: 60, padding: 15, color: '#FFF', marginBottom: 15, fontSize: 12 },
-  submitBtn: { backgroundColor: '#00FFAD', padding: 16, borderRadius: 12, alignItems: 'center' },
-  submitBtnText: { color: '#020C1B', fontWeight: '900', fontSize: 12 },
-  tabStyle: { backgroundColor: '#0A192F', borderTopColor: '#112240', height: 80, paddingBottom: 20 },
-  hubNavBox: { backgroundColor: '#112240', marginHorizontal: 20, marginBottom: 15, padding: 20, borderRadius: 15, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1E293B' },
-  hubIconCircle: { width: 55, height: 55, borderRadius: 28, borderWidth: 1, borderColor: '#00FFAD', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  hubNavContent: { flex: 1 },
-  hubNavTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  hubNavSub: { color: '#495670', fontSize: 11, marginTop: 4 },
-  hubGreeting: { color: '#00FFAD', fontSize: 20, fontWeight: '900', marginBottom: 10 },
-  aboutText: { color: '#8892B0', fontSize: 14, lineHeight: 22 },
-  missionDarkCard: { backgroundColor: '#0A192F', margin: 20, padding: 25, borderRadius: 20, borderWidth: 1, borderColor: '#1E293B' },
-  challengeCard: {width: '48%',backgroundColor: '#112240',padding: 20,borderRadius: 15,alignItems: 'center',borderWidth: 1,borderColor: '#1E293B',marginBottom: 10},
-  challengeStat: { fontSize: 22, fontWeight: '900', color: '#FFF', marginVertical: 8 },
-  challengeLabel: { color: '#495670', fontSize: 10, fontWeight: 'bold' },
-  solutionList: { marginHorizontal: 20, backgroundColor: '#112240', padding: 20, borderRadius: 20 },
-  solRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  solText: { color: '#FFF', marginLeft: 12, fontSize: 13, fontWeight: '500' },
-  visionQuote: { color: '#495670', fontStyle: 'italic', textAlign: 'center', marginTop: 40, paddingHorizontal: 40, fontSize: 12 },
-  rvBadge: { backgroundColor: '#112240', padding: 8, borderRadius: 6, borderWidth: 1, borderColor: '#4285F4' },
-  rvText: { color: '#4285F4', fontSize: 8, fontWeight: 'bold' },
-  sectionTitle: { color: '#495670', fontSize: 10, fontWeight: '900', marginVertical: 20, paddingHorizontal: 20, textTransform: 'uppercase', letterSpacing: 2 },
-  gateOverlay: { flex: 1, backgroundColor: '#020C1B', justifyContent: 'center', alignItems: 'center' },
-  gateLogo: { color: '#00FFAD', fontSize: 48, fontWeight: '900' },
-  gateInputWrapper: { flexDirection: 'row', backgroundColor: '#112240', borderRadius: 15, marginTop: 30, padding: 5, width: '80%' },
-  gateInput: { flex: 1, paddingHorizontal: 20, color: '#FFF' },
-  gateBtn: { backgroundColor: '#00FFAD', width: 50, height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  auditBadge: { backgroundColor: '#00FFAD20', padding: 6, borderRadius: 8, borderWidth: 1, borderColor: '#00FFAD' },
-  auditBadgeText: { color: '#00FFAD', fontSize: 10, fontWeight: 'bold' },
-  auditGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20, alignItems: 'flex-start'},
-  statCard: { width: '48%', backgroundColor: '#112240', padding: 16, borderRadius: 15, marginBottom: 14, borderWidth: 1, borderColor: '#1E293B' },
-  statLabel: { color: '#8892B0', fontSize: 9, fontWeight: 'bold', marginBottom: 4, letterSpacing: 0.5 },
-  statValue: { color: '#FFF', fontSize: 24, fontWeight: '900' },
-  statFooter: { color: '#495670', fontSize: 9, marginTop: 4 },
-  graphSection: { paddingHorizontal: 20, marginTop: 20 },
-  progressBarBg: { height: 10, backgroundColor: '#112240', borderRadius: 5, overflow: 'hidden', marginVertical: 0 },
-  progressBarFill: { height: '100%', backgroundColor: '#00FFAD', borderRadius: 5 },
-  graphSub: { color: '#8892B0', fontSize: 12, lineHeight: 18 },
-  exportBtn: { backgroundColor: '#00FFAD', marginHorizontal: 20, marginTop: 8, padding: 18, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
-  exportBtnText: { color: '#020C1B', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
-  syncBtn: { marginHorizontal: 20, marginTop: 10, padding: 15, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, backgroundColor: '#00FFAD10', borderWidth: 1, borderColor: '#00FFAD30' },
-  syncBtnText: { color: '#00FFAD', fontWeight: '700', fontSize: 12, letterSpacing: 1 },
-  auditSection: { paddingHorizontal: 20, marginTop: 24 },
-  auditBarLabel: { color: '#8892B0', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  chartCard: { backgroundColor: '#0A192F', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#112240' },
-  chartAxisLabel: { color: '#495670', fontSize: 9, fontWeight: '600' },
-  chartNote: { color: '#8892B0', fontSize: 11, marginTop: 10, lineHeight: 16 },
-  ringCaption: { color: '#495670', fontSize: 8, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase' },
-  riskBanner: { borderRadius: 16, padding: 18, borderWidth: 1.5, gap: 10 },
-  riskLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 2 },
-  riskValue: { fontSize: 28, fontWeight: '900', letterSpacing: -1, marginTop: 2 },
-  riskDesc: { color: '#8892B0', fontSize: 12, lineHeight: 18 },
-  predictCard: { backgroundColor: '#0A192F', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#112240', gap: 6 },
-  predictLabel: { color: '#495670', fontSize: 8, fontWeight: '800', letterSpacing: 1.5 },
-  predictVal: { fontSize: 22, fontWeight: '900' },
-  predictNote: { color: '#495670', fontSize: 9, marginTop: 2 },
-  unitRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0A192F', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, gap: 12 },
-  unitDot: { width: 10, height: 10, borderRadius: 5 },
-  unitName: { color: '#FFF', fontSize: 13, fontWeight: '700' },
-  unitMeta: { color: '#495670', fontSize: 10, marginTop: 2 },
-  unitTemp: { fontSize: 16, fontWeight: '900' },
-  signOutBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#FF4D4D12', borderWidth: 1, borderColor: '#FF4D4D30', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  signOutText: { color: '#FF4D4D', fontSize: 11, fontWeight: '700' },
-  trackingPill: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, backgroundColor: '#00FFAD12', borderWidth: 1, borderColor: '#00FFAD30', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
-  trackingPillText: { color: '#00FFAD', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-});
-
-// --- AUDIT CHART STYLES ---
-const auditChartStyles = StyleSheet.create({
-  chartTitle: { color: '#FFF', fontSize: 13, fontWeight: '800', marginBottom: 3 },
-  chartSub: { color: '#495670', fontSize: 10, lineHeight: 15 },
-  riskCard: { borderRadius: 16, padding: 20, borderWidth: 1.5 },
-  riskLevel: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 8 },
-  riskDesc: { color: '#8892B0', fontSize: 12, lineHeight: 18, flex: 1 },
-});
-
-// --- AUTH SCREEN STYLES ---
-const authStyles = StyleSheet.create({
-  screen: { flexGrow: 1, backgroundColor: '#020C1B', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 60 },
-  logoBlock: { alignItems: 'center', marginBottom: 32 },
-  logoIconRing: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#00FFAD12', borderWidth: 1.5, borderColor: '#00FFAD40', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  logoText: { color: '#00FFAD', fontSize: 32, fontWeight: '900', letterSpacing: -1 },
-  logoSub: { color: '#495670', fontSize: 9, fontWeight: '800', letterSpacing: 2.5, marginTop: 3 },
-  card: { width: '100%', backgroundColor: '#0A192F', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#1E293B' },
-  tabRow: { flexDirection: 'row', backgroundColor: '#112240', borderRadius: 12, padding: 4, marginBottom: 24 },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
-  tabActive: { backgroundColor: '#00FFAD' },
-  tabText: { color: '#495670', fontSize: 12, fontWeight: '700' },
-  tabTextActive: { color: '#020C1B', fontWeight: '900' },
-  cardHeading: { color: '#FFF', fontSize: 22, fontWeight: '900', marginBottom: 6 },
-  cardSub: { color: '#8892B0', fontSize: 12, lineHeight: 18, marginBottom: 22 },
-  fieldGroup: { marginBottom: 16 },
-  fieldLabel: { color: '#495670', fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 7 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#112240', borderRadius: 12, borderWidth: 1, borderColor: '#1E293B' },
-  inputIcon: { paddingLeft: 14 },
-  input: { flex: 1, color: '#FFF', paddingVertical: 13, paddingHorizontal: 10, fontSize: 14 },
-  fieldHint: { color: '#2E3D55', fontSize: 10, marginTop: 5 },
-  errorBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF4D4D12', borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: '#FF4D4D30' },
-  errorText: { color: '#FF4D4D', fontSize: 12, flex: 1 },
-  submitBtn: { backgroundColor: '#00FFAD', borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 6 },
-  submitText: { color: '#020C1B', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
-  switchText: { color: '#8892B0', fontSize: 13 },
-  footer: { color: '#2E3D55', fontSize: 10, marginTop: 28, letterSpacing: 0.5 },
-});
