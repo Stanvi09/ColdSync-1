@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase } from "firebase/database"; // 1. Import the Database SDK
+import { getDatabase } from "firebase/database"; 
+import { getAuth } from 'firebase/auth'; // 1. Import the Database SDK
 
 const firebaseConfig = {
   apiKey: "AIzaSyCkEEAOMLSv0dIO8dGRsqFKLDjBqUX7Pn4",
@@ -17,3 +18,4 @@ const app = initializeApp(firebaseConfig);
 
 // 3. Initialize and Export the Database
 export const db = getDatabase(app);
+export const auth = getAuth(app);   
