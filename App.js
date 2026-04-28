@@ -164,7 +164,7 @@ function AuthScreen({ onAuth }) {
             if (e.code === 'auth/email-already-in-use') {
               // Already registered — just switch to sign in for them
               setMode('login');
-              setError('Looks like you already have an account. We've switched to sign in — just enter your password.');
+              setError('Looks like you already have an account. We have switched to sign in — just enter your password.');
             } else if (e.code === 'auth/invalid-email') {
               setError('Invalid email address.');
             } else {
@@ -219,7 +219,7 @@ function AuthScreen({ onAuth }) {
             if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
               // No account — switch to signup for them
               setMode('signup');
-              setError('No account found with this email. We've switched to sign up — fill in your details to get started.');
+              setError('No account found with this email. We have switched to sign up — fill in your details to get started.');
             } else if (e.code === 'auth/wrong-password') {
               setError('Wrong password. Please try again.');
             } else if (e.code === 'auth/too-many-requests') {
