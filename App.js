@@ -100,11 +100,17 @@ const SimpleBarChart = ({ data }) => {
 // AUTH SCREEN
 // ═══════════════════════════════════════════════════════════════
 function AuthScreen({ onAuth }) {
+  // role: null = not chosen yet, 'dispatcher' = sending, 'receiver' = tracking
+  const [role, setRole]         = useState(null);
   const [mode, setMode]         = useState('login');
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [trackId, setTrackId]   = useState('');
+  // dispatcher signup fields
+  const [destination, setDestination] = useState('');
+  const [eta, setEta]                 = useState('');
+  const [contents, setContents]       = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
@@ -114,25 +120,128 @@ function AuthScreen({ onAuth }) {
     Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
 
+  // Generate a random tracking ID for dispatchers
+  const generateTrackingId = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const rand = (n) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    return `CS-${rand(4)}-${rand(3)}`;
+  };
+
   const handleSubmit = () => {
     setError('');
     if (mode === 'signup') {
       if (!name.trim())         return setError('Please enter your full name.');
       if (!email.includes('@')) return setError('Enter a valid email address.');
       if (password.length < 6)  return setError('Password must be at least 6 characters.');
-      if (!trackId.trim())      return setError('Please enter your Tracking ID.');
+      if (role === 'receiver' && !trackId.trim()) return setError('Please enter the tracking ID shared by the sender.');
+      if (role === 'dispatcher') {
+        if (!destination.trim()) return setError('Please enter the destination.');
+        if (!eta.trim())         return setError('Please enter the estimated arrival.');
+      }
     } else {
       if (!email.includes('@')) return setError('Enter a valid email address.');
       if (!password.trim())     return setError('Please enter your password.');
       if (!trackId.trim())      return setError('Please enter your Tracking ID.');
     }
+
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      onAuth({ name: name || email.split('@')[0], trackingId: trackId.toUpperCase() });
+
+      let cleanId;
+
+      if (mode === 'signup' && role === 'dispatcher') {
+        // Dispatcher: generate a new tracking ID and create the shipment node
+        cleanId = generateTrackingId();
+        const shipmentRef = ref(db, `shipments/${cleanId}`);
+        set(shipmentRef, {
+          destination: destination.trim(),
+          eta: eta.trim(),
+          contents: contents.trim() || 'Not specified',
+          status: 'IN-TRANSIT',
+          dispatchedBy: name.trim(),
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        cleanId = trackId.toUpperCase();
+        // Receiver signup or any login: just verify/read the existing shipment
+        if (mode === 'signup' && role === 'receiver') {
+          // Check the shipment exists — just read it (TransitScreen handles display)
+          const shipmentRef = ref(db, `shipments/${cleanId}`);
+          onValue(shipmentRef, (snapshot) => {
+            if (!snapshot.exists()) {
+              setError('Tracking ID not found. Ask the sender to double-check.');
+              setLoading(false);
+            }
+          }, { onlyOnce: true });
+        }
+      }
+
+      onAuth({
+        name: name || email.split('@')[0],
+        trackingId: cleanId,
+        role: mode === 'login' ? 'dispatcher' : role, // existing logins default to dispatcher view
+        isNew: mode === 'signup',
+      });
     }, 800);
   };
 
+  // ── Role picker (shown before login/signup form) ─────────────────
+  if (!role) {
+    return (
+      <ScrollView contentContainerStyle={authS.screen} keyboardShouldPersistTaps="handled">
+        <StatusBar barStyle="light-content" />
+        <Animated.View style={[authS.logoBlock, { opacity: fadeAnim }]}>
+          <View style={authS.logoRing}>
+            <MaterialCommunityIcons name="snowflake" size={28} color={C.accent} />
+          </View>
+          <Text style={authS.logoText}>ColdSync</Text>
+          <Text style={authS.logoSub}>RVCE INNOVATION LAB</Text>
+        </Animated.View>
+
+        <View style={authS.card}>
+          <Text style={authS.heading}>What brings you here?</Text>
+          <Text style={[authS.sub, { marginBottom: 24 }]}>Choose your role to get started.</Text>
+
+          <TouchableOpacity style={authS.roleCard} onPress={() => setRole('dispatcher')} activeOpacity={0.8}>
+            <View style={[authS.roleIcon, { backgroundColor: C.accentDim, borderColor: C.accent + '40' }]}>
+              <MaterialCommunityIcons name="truck-delivery-outline" size={28} color={C.accent} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={authS.roleTitle}>I'm sending a shipment</Text>
+              <Text style={authS.roleSub}>Create a shipment, attach hardware, share tracking ID with receiver</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={C.textMute} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[authS.roleCard, { marginTop: 12 }]} onPress={() => setRole('receiver')} activeOpacity={0.8}>
+            <View style={[authS.roleIcon, { backgroundColor: C.blueDim, borderColor: C.blue + '40' }]}>
+              <MaterialCommunityIcons name="package-variant" size={28} color={C.blue} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={authS.roleTitle}>I'm receiving a shipment</Text>
+              <Text style={authS.roleSub}>Track a live shipment using the ID shared by the sender</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={C.textMute} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[authS.roleCard, { marginTop: 12 }]} onPress={() => { setRole('dispatcher'); setMode('login'); }} activeOpacity={0.8}>
+            <View style={[authS.roleIcon, { backgroundColor: C.textMute + '18', borderColor: C.textMute + '30' }]}>
+              <MaterialCommunityIcons name="login" size={28} color={C.textSec} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={authS.roleTitle}>Sign in to existing account</Text>
+              <Text style={authS.roleSub}>Already registered? Sign in with your email and tracking ID</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={C.textMute} />
+          </TouchableOpacity>
+        </View>
+        <Text style={authS.footer}>Authorized Personnel Only · RVCE Innovation Lab</Text>
+      </ScrollView>
+    );
+  }
+
+  // ── Login / Signup form ──────────────────────────────────────────
   return (
     <ScrollView contentContainerStyle={authS.screen} keyboardShouldPersistTaps="handled">
       <StatusBar barStyle="light-content" />
@@ -146,7 +255,17 @@ function AuthScreen({ onAuth }) {
       </Animated.View>
 
       <Animated.View style={[authS.card, { opacity: fadeAnim }]}>
-        {/* Tab switcher */}
+        {/* Back + role indicator */}
+        <TouchableOpacity onPress={() => { setRole(null); setError(''); }} style={authS.backRow}>
+          <MaterialCommunityIcons name="arrow-left" size={16} color={C.textSec} />
+          <Text style={authS.backText}>Back</Text>
+          <View style={[authS.rolePill, { backgroundColor: role === 'dispatcher' ? C.accentDim : C.blueDim, borderColor: role === 'dispatcher' ? C.accent + '40' : C.blue + '40' }]}>
+            <MaterialCommunityIcons name={role === 'dispatcher' ? 'truck-delivery-outline' : 'package-variant'} size={10} color={role === 'dispatcher' ? C.accent : C.blue} />
+            <Text style={[authS.rolePillText, { color: role === 'dispatcher' ? C.accent : C.blue }]}>{role === 'dispatcher' ? 'DISPATCHER' : 'RECEIVER'}</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Sign in / Sign up tabs — only show if not forced to login */}
         <View style={authS.tabRow}>
           {['login','signup'].map(m => (
             <TouchableOpacity key={m} style={[authS.tab, mode === m && authS.tabActive]} onPress={() => { setMode(m); setError(''); }}>
@@ -155,15 +274,38 @@ function AuthScreen({ onAuth }) {
           ))}
         </View>
 
-        <Text style={authS.heading}>{mode === 'login' ? 'Welcome back' : 'Create account'}</Text>
-        <Text style={authS.sub}>{mode === 'login' ? 'Monitor your cold chain in real-time.' : 'Register as a ColdSync operator.'}</Text>
+        <Text style={authS.heading}>
+          {mode === 'login' ? 'Welcome back' : role === 'dispatcher' ? 'New shipment' : 'Track a shipment'}
+        </Text>
+        <Text style={authS.sub}>
+          {mode === 'login'
+            ? 'Sign in to your ColdSync account.'
+            : role === 'dispatcher'
+            ? 'Create your account and set up this shipment.'
+            : 'Create your account to start tracking.'}
+        </Text>
 
         {mode === 'signup' && (
           <Field icon="account-outline" label="FULL NAME" placeholder="Dr. Tanvi Sharma" value={name} onChangeText={setName} autoCapitalize="words" />
         )}
         <Field icon="email-outline" label="EMAIL" placeholder="operator@coldsync.in" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
         <Field icon="lock-outline" label="PASSWORD" placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry={!showPass} rightIcon={showPass ? 'eye-off-outline' : 'eye-outline'} onRightIcon={() => setShowPass(p => !p)} />
-        <Field icon="barcode-scan" label="SHIPMENT TRACKING ID" placeholder="e.g. CS-RVCE-01" value={trackId} onChangeText={setTrackId} autoCapitalize="characters" hint="Links your session to an active shipment." />
+
+        {/* Dispatcher signup: shipment details — tracking ID is auto-generated */}
+        {mode === 'signup' && role === 'dispatcher' && (<>
+          <View style={authS.infoBox}>
+            <MaterialCommunityIcons name="information-outline" size={14} color={C.accent} />
+            <Text style={authS.infoText}>A unique tracking ID will be generated for this shipment. Share it with your receiver after signing up.</Text>
+          </View>
+          <Field icon="map-marker-outline" label="DESTINATION" placeholder="e.g. Manipal Hospital, Mumbai" value={destination} onChangeText={setDestination} />
+          <Field icon="clock-outline" label="ESTIMATED ARRIVAL" placeholder="e.g. 28 Apr 2026, 14:30 IST" value={eta} onChangeText={setEta} />
+          <Field icon="pill" label="SHIPMENT CONTENTS" placeholder="e.g. Polio Vaccines — 200 vials" value={contents} onChangeText={setContents} />
+        </>)}
+
+        {/* Receiver signup or any login: enter tracking ID */}
+        {(mode === 'login' || role === 'receiver') && (
+          <Field icon="barcode-scan" label="SHIPMENT TRACKING ID" placeholder="e.g. CS-AB12-XY9" value={trackId} onChangeText={setTrackId} autoCapitalize="characters" hint={role === 'receiver' ? 'Enter the ID shared by the sender.' : 'Your shipment tracking ID.'} />
+        )}
 
         {!!error && (
           <View style={authS.errorBox}>
@@ -174,7 +316,7 @@ function AuthScreen({ onAuth }) {
 
         <TouchableOpacity style={[authS.btn, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.85}>
           <MaterialCommunityIcons name={mode === 'login' ? 'login' : 'account-plus'} size={17} color={C.bg} />
-          <Text style={authS.btnText}>{loading ? 'AUTHENTICATING...' : mode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'}</Text>
+          <Text style={authS.btnText}>{loading ? 'AUTHENTICATING...' : mode === 'login' ? 'SIGN IN' : role === 'dispatcher' ? 'CREATE SHIPMENT' : 'START TRACKING'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); }} style={{ marginTop: 20, alignItems: 'center' }}>
@@ -231,6 +373,16 @@ const authS = StyleSheet.create({
   btnText: { color: C.bg, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   switchText: { color: C.textSec, fontSize: 13 },
   footer: { color: C.textMute, fontSize: 9, marginTop: 24, letterSpacing: 0.5 },
+  roleCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border },
+  roleIcon: { width: 52, height: 52, borderRadius: 14, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  roleTitle: { color: C.textPri, fontSize: 14, fontWeight: '800', marginBottom: 3 },
+  roleSub: { color: C.textSec, fontSize: 11, lineHeight: 16 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 },
+  backText: { color: C.textSec, fontSize: 13, flex: 1 },
+  rolePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  rolePillText: { fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  infoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: C.accentDim, borderRadius: 12, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: C.accent + '30' },
+  infoText: { color: C.textSec, fontSize: 11, lineHeight: 16, flex: 1 },
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -362,16 +514,36 @@ function HubScreen({ navigation, user, onSignOut }) {
       />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={{ paddingHorizontal: 20, paddingTop: 32, paddingBottom: 28 }}>
-          <Text style={gs.pageEyebrow}>WELCOME BACK</Text>
+          <Text style={gs.pageEyebrow}>{user?.isNew ? 'WELCOME' : 'WELCOME BACK'}</Text>
           <Text style={gs.pageTitle}>{(user?.name || 'Operator').toUpperCase()}</Text>
           <View style={gs.accentBar} />
-          <Pill label={user?.trackingId || 'CS-RVCE-01'} icon="barcode-scan" color={C.accent} />
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            <Pill
+              label={user?.role === 'receiver' ? 'RECEIVER' : 'DISPATCHER'}
+              icon={user?.role === 'receiver' ? 'package-variant' : 'truck-delivery-outline'}
+              color={user?.role === 'receiver' ? C.blue : C.accent}
+            />
+            <Pill label={user?.trackingId || 'CS-RVCE-01'} icon="barcode-scan" color={C.textSec} />
+          </View>
+
+          {/* Show tracking ID prominently for new dispatchers so they can share it */}
+          {user?.isNew && user?.role === 'dispatcher' && (
+            <View style={hub.shareCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={hub.shareLabel}>YOUR TRACKING ID — SHARE WITH RECEIVER</Text>
+                <Text style={hub.shareId}>{user?.trackingId}</Text>
+                <Text style={hub.shareSub}>The receiver needs this ID to track your shipment</Text>
+              </View>
+              <MaterialCommunityIcons name="share-variant" size={22} color={C.accent} />
+            </View>
+          )}
         </View>
 
         {[
-          { screen: 'Units',   icon: 'view-grid',        color: C.accent, title: 'Asset Telemetry',  sub: 'Monitor box health & diagnostics' },
-          { screen: 'Transit', icon: 'radar',            color: C.blue,   title: 'Live Transit',     sub: 'Track shipment & custody logs' },
-          { screen: 'Mission', icon: 'information-variant', color: C.textSec, title: 'Our Mission', sub: 'About the ColdSync initiative' },
+          { screen: 'Units',   icon: 'view-grid',           color: C.accent,   title: 'Asset Telemetry',  sub: 'Live temperature & hardware feed' },
+          { screen: 'Transit', icon: 'radar',               color: C.blue,     title: 'Live Transit',     sub: 'Track shipment & custody logs' },
+          { screen: 'Audit',   icon: 'file-chart',          color: C.amber,    title: 'Audit Report',     sub: 'Breach history & compliance data' },
+          { screen: 'Mission', icon: 'information-variant', color: C.textSec,  title: 'Our Mission',      sub: 'About the ColdSync initiative' },
         ].map((item, i) => (
           <TouchableOpacity key={i} style={hub.navCard} onPress={() => navigation.navigate(item.screen)} activeOpacity={0.75}>
             <View style={[hub.iconBox, { borderColor: item.color + '50', backgroundColor: item.color + '10' }]}>
@@ -399,6 +571,10 @@ const hub = StyleSheet.create({
   navTitle: { color: C.textPri, fontSize: 16, fontWeight: '800', marginBottom: 3 },
   navSub: { color: C.textSec, fontSize: 12 },
   chevronBox: { width: 28, height: 28, borderRadius: 8, backgroundColor: C.card, justifyContent: 'center', alignItems: 'center' },
+  shareCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.accentDim, borderWidth: 1, borderColor: C.accent + '40', borderRadius: 16, padding: 16, marginTop: 16 },
+  shareLabel: { color: C.textMute, fontSize: 8, fontWeight: '800', letterSpacing: 1.5, marginBottom: 6 },
+  shareId: { color: C.accent, fontSize: 22, fontWeight: '900', letterSpacing: 1, marginBottom: 4 },
+  shareSub: { color: C.textSec, fontSize: 10 },
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -580,21 +756,52 @@ const units = StyleSheet.create({
 // ═══════════════════════════════════════════════════════════════
 // TRANSIT SCREEN
 // ═══════════════════════════════════════════════════════════════
-function TransitScreen({ trackingId }) {
-  const [remarks, setRemarks] = useState('');
-  const [logs, setLogs]       = useState([]);
+function TransitScreen({ trackingId, role }) {
+  const [remarks, setRemarks]           = useState('');
+  const [logs, setLogs]                 = useState([]);
+  const [shipmentInfo, setShipmentInfo] = useState(null);
 
   useEffect(() => {
     const logsRef = ref(db, 'logs');
-    const unsubscribe = onValue(logsRef, (snapshot) => {
+    const unsubscribeLogs = onValue(logsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const formattedLogs = Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse();
         setLogs(formattedLogs);
       }
     });
-    return () => unsubscribe();
-  }, []);
+
+    // Pull shipment metadata (destination, eta, status) from Firebase using tracking ID
+    const shipmentRef = ref(db, `shipments/${trackingId}`);
+    const unsubscribeShipment = onValue(shipmentRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) setShipmentInfo(data);
+    });
+
+    return () => { unsubscribeLogs(); unsubscribeShipment(); };
+  }, [trackingId]);
+
+  const [editingShipment, setEditingShipment] = useState(false);
+  const [editDest, setEditDest]               = useState('');
+  const [editEta, setEditEta]                 = useState('');
+  const [editStatus, setEditStatus]           = useState('');
+
+  const openEdit = () => {
+    setEditDest(shipmentInfo?.destination || '');
+    setEditEta(shipmentInfo?.eta || '');
+    setEditStatus(shipmentInfo?.status || 'IN-TRANSIT');
+    setEditingShipment(true);
+  };
+
+  const saveShipmentInfo = () => {
+    const shipmentRef = ref(db, `shipments/${trackingId}`);
+    set(shipmentRef, {
+      destination: editDest.trim() || 'Not set',
+      eta: editEta.trim() || 'Not set',
+      status: editStatus.trim() || 'IN-TRANSIT',
+    });
+    setEditingShipment(false);
+  };
 
   const handleAddLog = () => {
     if (remarks.trim() === '') return;
@@ -619,7 +826,7 @@ function TransitScreen({ trackingId }) {
         <View style={transit.etaCard}>
           <View>
             <Text style={transit.etaLabel}>ESTIMATED ARRIVAL</Text>
-            <Text style={transit.etaVal}>Today, 14:30 IST</Text>
+            <Text style={transit.etaVal}>{shipmentInfo?.eta || 'Not set'}</Text>
           </View>
           <View style={transit.etaIcon}>
             <MaterialCommunityIcons name="clock-fast" size={26} color={C.accent} />
@@ -628,20 +835,66 @@ function TransitScreen({ trackingId }) {
 
         {/* Asset card */}
         <View style={[gs.glassCard, { marginTop: 12, marginBottom: 0 }]}>
-          <Text style={gs.cardLabel}>ASSET TRACKING ID</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={gs.cardLabel}>ASSET TRACKING ID</Text>
+            <TouchableOpacity onPress={openEdit} style={transit.editBtn}>
+              <MaterialCommunityIcons name="pencil-outline" size={12} color={C.blue} />
+              <Text style={transit.editBtnText}>EDIT</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={transit.assetId}>{trackingId || 'CS-RVCE-01'}</Text>
           <View style={transit.divider} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <View>
               <Text style={transit.metKey}>STATUS</Text>
-              <Text style={transit.metVal}>IN-TRANSIT</Text>
+              <Text style={transit.metVal}>{shipmentInfo?.status || 'IN-TRANSIT'}</Text>
             </View>
             <View>
               <Text style={transit.metKey}>DESTINATION</Text>
-              <Text style={transit.metVal}>RVCE CAMPUS</Text>
+              <Text style={transit.metVal}>{shipmentInfo?.destination || 'Not set'}</Text>
             </View>
           </View>
         </View>
+
+        {/* Edit shipment modal */}
+        <Modal visible={editingShipment} transparent animationType="slide">
+          <View style={units.overlay}>
+            <View style={units.modal}>
+              <Text style={units.modalTitle}>EDIT SHIPMENT INFO</Text>
+              <Text style={[gs.cardLabel, { marginTop: 14 }]}>DESTINATION</Text>
+              <TextInput
+                style={transit.editInput}
+                placeholder="e.g. Manipal Hospital, Delhi"
+                placeholderTextColor={C.textMute}
+                value={editDest}
+                onChangeText={setEditDest}
+              />
+              <Text style={[gs.cardLabel, { marginTop: 12 }]}>ETA</Text>
+              <TextInput
+                style={transit.editInput}
+                placeholder="e.g. Today, 14:30 IST"
+                placeholderTextColor={C.textMute}
+                value={editEta}
+                onChangeText={setEditEta}
+              />
+              <Text style={[gs.cardLabel, { marginTop: 12 }]}>STATUS</Text>
+              <TextInput
+                style={transit.editInput}
+                placeholder="e.g. IN-TRANSIT"
+                placeholderTextColor={C.textMute}
+                value={editStatus}
+                onChangeText={setEditStatus}
+                autoCapitalize="characters"
+              />
+              <TouchableOpacity style={[units.closeBtn, { marginTop: 20 }]} onPress={saveShipmentInfo}>
+                <Text style={units.closeBtnText}>SAVE CHANGES</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEditingShipment(false)} style={{ marginTop: 12, alignItems: 'center' }}>
+                <Text style={{ color: C.textSec, fontSize: 12 }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <SectionHeader label="Chain of Custody" />
 
@@ -669,22 +922,76 @@ function TransitScreen({ trackingId }) {
           })}
         </View>
 
-        {/* Log entry */}
-        <View style={[gs.glassCard, { marginTop: 16 }]}>
-          <Text style={gs.cardLabel}>ADD FIELD LOG</Text>
-          <TextInput
-            style={transit.input}
-            placeholder="Type log details…"
-            placeholderTextColor={C.textMute}
-            multiline
-            value={remarks}
-            onChangeText={setRemarks}
-          />
-          <TouchableOpacity style={transit.addBtn} onPress={handleAddLog}>
-            <MaterialCommunityIcons name="plus" size={16} color={C.bg} />
-            <Text style={transit.addBtnText}>UPDATE TIMELINE</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Field log — dispatcher only */}
+        {role !== 'receiver' && (
+          <View style={[gs.glassCard, { marginTop: 16 }]}>
+            <Text style={gs.cardLabel}>ADD FIELD LOG</Text>
+            <TextInput
+              style={transit.input}
+              placeholder="Type log details…"
+              placeholderTextColor={C.textMute}
+              multiline
+              value={remarks}
+              onChangeText={setRemarks}
+            />
+            <TouchableOpacity style={transit.addBtn} onPress={handleAddLog}>
+              <MaterialCommunityIcons name="plus" size={16} color={C.bg} />
+              <Text style={transit.addBtnText}>UPDATE TIMELINE</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Accept / Reject — receiver only */}
+        {role === 'receiver' && (
+          <View style={[gs.glassCard, { marginTop: 16 }]}>
+            <Text style={gs.cardLabel}>SHIPMENT DECISION</Text>
+            <Text style={[gs.bodyText, { marginBottom: 16 }]}>
+              Review the audit report and temperature history before accepting this delivery.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                style={[transit.decisionBtn, { backgroundColor: C.accentDim, borderColor: C.accent + '50', flex: 1 }]}
+                onPress={() => {
+                  const logsRef = ref(db, 'logs');
+                  const newLogRef = push(logsRef);
+                  set(newLogRef, {
+                    title: 'SHIPMENT ACCEPTED',
+                    desc: 'Receiver confirmed delivery. Shipment accepted.',
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    user: 'RECEIVER',
+                    status: 'active',
+                  });
+                  const shipmentRef = ref(db, `shipments/${trackingId}`);
+                  set(shipmentRef, { ...shipmentInfo, status: 'DELIVERED' });
+                  alert('Shipment accepted. Logged to chain of custody.');
+                }}
+              >
+                <MaterialCommunityIcons name="check-circle-outline" size={20} color={C.accent} />
+                <Text style={[transit.decisionText, { color: C.accent }]}>ACCEPT</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[transit.decisionBtn, { backgroundColor: C.redDim, borderColor: C.red + '50', flex: 1 }]}
+                onPress={() => {
+                  const logsRef = ref(db, 'logs');
+                  const newLogRef = push(logsRef);
+                  set(newLogRef, {
+                    title: 'SHIPMENT REJECTED',
+                    desc: 'Receiver rejected delivery due to cold chain concerns.',
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    user: 'RECEIVER',
+                    status: 'active',
+                  });
+                  const shipmentRef = ref(db, `shipments/${trackingId}`);
+                  set(shipmentRef, { ...shipmentInfo, status: 'REJECTED' });
+                  alert('Shipment rejected. Logged to chain of custody.');
+                }}
+              >
+                <MaterialCommunityIcons name="close-circle-outline" size={20} color={C.red} />
+                <Text style={[transit.decisionText, { color: C.red }]}>REJECT</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -711,6 +1018,11 @@ const transit = StyleSheet.create({
   input: { backgroundColor: C.bg, borderRadius: 12, height: 64, padding: 14, color: C.textPri, marginTop: 12, marginBottom: 12, fontSize: 13, borderWidth: 1, borderColor: C.border },
   addBtn: { backgroundColor: C.accent, padding: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   addBtnText: { color: C.bg, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.blueDim, borderWidth: 1, borderColor: C.blue + '40', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  editBtnText: { color: C.blue, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  editInput: { backgroundColor: C.bg, borderRadius: 12, padding: 13, color: C.textPri, fontSize: 13, borderWidth: 1, borderColor: C.border, marginTop: 6 },
+  decisionBtn: { padding: 16, borderRadius: 14, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  decisionText: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -1103,7 +1415,7 @@ export default function App() {
         </Tab.Screen>
         <Tab.Screen name="Units" component={UnitsScreen} options={{ tabBarIcon: ({ color }) => <MaterialCommunityIcons name="view-grid" size={24} color={color} /> }} />
         <Tab.Screen name="Transit" options={{ tabBarIcon: ({ color }) => <MaterialCommunityIcons name="radar" size={24} color={color} /> }}>
-          {() => <TransitScreen trackingId={user.trackingId} />}
+          {() => <TransitScreen trackingId={user.trackingId} role={user.role} />}
         </Tab.Screen>
         <Tab.Screen name="Audit" component={AuditScreen} options={{ tabBarIcon: ({ color }) => <MaterialCommunityIcons name="file-chart" size={24} color={color} /> }} />
         <Tab.Screen name="Mission" component={MissionScreen} options={{ tabBarIcon: ({ color }) => <MaterialCommunityIcons name="shield-check" size={24} color={color} /> }} />
