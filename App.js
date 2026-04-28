@@ -238,110 +238,105 @@ const authS = StyleSheet.create({
 // ═══════════════════════════════════════════════════════════════
 function MissionScreen() {
   return (
-    <View style={styles.container}>
-      <View style={styles.headerBar}>
-        <Text style={styles.mainLogoText}>ColdSync</Text>
-        <View style={styles.rvBadge}><Text style={styles.rvText}>RVCE INNOVATION</Text></View>
-      </View>
-      <ScrollView contentContainerStyle={styles.scrollArea}>
+    <View style={gs.screen}>
+      <Header title="ColdSync" right={<Pill label="MISSION" icon="information" />} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* HERO */}
-        <View style={styles.welcomeHeader}>
-          <Text style={styles.grandWelcomeText}>ABOUT COLDSYNC</Text>
-          <Text style={[styles.brandTitleText, {fontSize: 38, lineHeight: 44}]}>
-            Keeping{"\n"}<Text style={{color: '#00FFAD'}}>life-saving</Text>{"\n"}medicines cold.
+        <View style={{ paddingHorizontal: 20, paddingTop: 32, paddingBottom: 24 }}>
+          <Text style={gs.pageEyebrow}>ABOUT COLDSYNC</Text>
+          <Text style={[gs.pageTitle, { fontSize: 38, lineHeight: 44 }]}>
+            Keeping{"\n"}<Text style={{ color: C.accent }}>life-saving</Text>{"\n"}medicines cold.
           </Text>
-          <View style={styles.accentLine} />
-          <Text style={styles.heroSubtitle}>
+          <View style={gs.accentBar} />
+          <Text style={gs.pageSub}>
             An IoT-powered cold chain intelligence platform that monitors vaccines and biologics in real-time — from warehouse to last-mile delivery.
           </Text>
         </View>
 
         {/* THE PROBLEM */}
-        <Text style={styles.sectionTitle}>The Problem We Solve</Text>
-        <View style={[styles.missionDarkCard, {borderColor: '#FF6B6B30', marginBottom: 8}]}>
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10}}>
-            <MaterialCommunityIcons name="alert-octagram" size={18} color="#FF6B6B" />
-            <Text style={{color: '#FF6B6B', fontSize: 11, fontWeight: '800', letterSpacing: 1}}>COLD CHAIN FAILURE IS A GLOBAL HEALTHCARE CRISIS</Text>
+        <SectionHeader label="The Problem We Solve" />
+        <View style={[gs.glassCard, { marginHorizontal: 20, borderColor: C.red + '30', marginBottom: 12 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <MaterialCommunityIcons name="alert-octagram" size={16} color={C.red} />
+            <Text style={{ color: C.red, fontSize: 10, fontWeight: '800', letterSpacing: 1, flex: 1 }}>COLD CHAIN FAILURE IS A GLOBAL HEALTHCARE CRISIS</Text>
           </View>
-          <Text style={styles.aboutText}>
-            Every year, <Text style={{color:'#FFF', fontWeight:'700'}}>up to 50% of all vaccines are wasted globally</Text> — not due to disease, but due to temperature excursions during storage and transit. In India alone, cold chain failures cost the healthcare system <Text style={{color:'#FFF', fontWeight:'700'}}>billions of rupees annually</Text>, silently undermining immunization programs.{"\n\n"}
-            The root cause: <Text style={{color:'#FFF', fontWeight:'700'}}>no real-time visibility</Text>. Shipments travel blind. By the time a breach is detected, damage is already done.
+          <Text style={gs.bodyText}>
+            Every year, <Text style={{ color: C.textPri, fontWeight: '700' }}>up to 50% of all vaccines are wasted globally</Text> — not due to disease, but due to temperature excursions during storage and transit. In India alone, cold chain failures cost the healthcare system <Text style={{ color: C.textPri, fontWeight: '700' }}>billions of rupees annually</Text>, silently undermining immunization programs.{"\n\n"}
+            The root cause: <Text style={{ color: C.textPri, fontWeight: '700' }}>no real-time visibility</Text>. Shipments travel blind. By the time a breach is detected, damage is already done.
           </Text>
         </View>
-        <View style={styles.challengeRow}>
-          <View style={styles.challengeCard}>
-            <MaterialCommunityIcons name="alert-octagram" size={24} color="#FF6B6B" />
-            <Text style={[styles.challengeStat, {color:'#FF6B6B'}]}>50%</Text>
-            <Text style={styles.challengeLabel}>Vaccine Waste Rate</Text>
-          </View>
-          <View style={styles.challengeCard}>
-            <MaterialCommunityIcons name="currency-inr" size={24} color="#FFB347" />
-            <Text style={[styles.challengeStat, {color:'#FFB347'}]}>₹Bn+</Text>
-            <Text style={styles.challengeLabel}>Annual Losses (India)</Text>
-          </View>
+        <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 12, marginBottom: 4 }}>
+          {[
+            { icon: 'alert-octagram', color: C.red,   stat: '50%',  label: 'Vaccine Waste Rate' },
+            { icon: 'currency-inr',   color: C.amber, stat: '₹Bn+', label: 'Annual Losses (India)' },
+          ].map((item, i) => (
+            <View key={i} style={[gs.glassCard, { flex: 1, alignItems: 'center' }]}>
+              <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
+              <Text style={[gs.statBig, { color: item.color, marginTop: 8 }]}>{item.stat}</Text>
+              <Text style={[gs.statLabel, { textAlign: 'center', fontSize: 11 }]}>{item.label}</Text>
+            </View>
+          ))}
         </View>
 
         {/* WHAT IS COLDSYNC */}
-        <Text style={styles.sectionTitle}>Our Solution</Text>
-        <View style={[styles.missionDarkCard, {borderColor: '#00FFAD30'}]}>
-          <Text style={[styles.hubGreeting, {marginBottom: 10}]}>What is ColdSync?</Text>
-          <Text style={styles.aboutText}>
-            ColdSync is an <Text style={{color:'#FFF', fontWeight:'700'}}>ESP32-based IoT monitoring system</Text> that attaches to cold-chain shipment boxes and streams live temperature, humidity, and battery data to a cloud dashboard in real-time.{"\n\n"}
-            When a temperature breach occurs, ColdSync <Text style={{color:'#FFF', fontWeight:'700'}}>automatically detects it, triggers hardware mitigation</Text> (activating cooling fans and PCM phase-change material systems), and logs a timestamped alert — creating a full chain-of-custody audit trail visible to every stakeholder.
+        <SectionHeader label="Our Solution" />
+        <View style={[gs.glassCard, { marginHorizontal: 20, borderColor: C.accent + '30' }]}>
+          <Text style={{ color: C.accent, fontSize: 16, fontWeight: '900', marginBottom: 10 }}>What is ColdSync?</Text>
+          <Text style={gs.bodyText}>
+            ColdSync is an <Text style={{ color: C.textPri, fontWeight: '700' }}>ESP32-based IoT monitoring system</Text> that attaches to cold-chain shipment boxes and streams live temperature, humidity, and battery data to a cloud dashboard in real-time.{"\n\n"}
+            When a temperature breach occurs, ColdSync <Text style={{ color: C.textPri, fontWeight: '700' }}>automatically detects it, triggers hardware mitigation</Text> (activating cooling fans and PCM phase-change material systems), and logs a timestamped alert — creating a full chain-of-custody audit trail visible to every stakeholder.
           </Text>
         </View>
 
         {/* HOW IT WORKS */}
-        <Text style={styles.sectionTitle}>How It Works</Text>
-        <View style={styles.solutionList}>
+        <SectionHeader label="How It Works" />
+        <View style={[gs.glassCard, { marginHorizontal: 20 }]}>
           {[
-            { num: '01', icon: 'cpu-64-bit',       title: 'Hardware Sensors on Every Box',      sub: 'ESP32 + DHT22 sensors stream temperature & humidity to Firebase every few seconds.' },
-            { num: '02', icon: 'bell-alert',        title: 'Intelligent Breach Detection',       sub: 'Exceeding 8°C triggers an instant alert, fan activation, and PCM mitigation — automatically.' },
-            { num: '03', icon: 'monitor-dashboard', title: 'Live Dashboard for Operators',       sub: 'Mobile app shows unit health, PCM state, battery load, and a full event timeline.' },
-            { num: '04', icon: 'file-chart',        title: 'Automated Audit Reports',            sub: 'One tap generates a compliance-ready PDF with breach stats, risk levels, and custody logs.' },
-          ].map((item, i) => (
-            <View key={i} style={[styles.solRow, {alignItems:'flex-start', marginBottom: 18, paddingBottom: 18, borderBottomWidth: i < 3 ? 1 : 0, borderBottomColor: '#1E293B'}]}>
-              <View style={{width: 28, height: 28, borderRadius: 8, backgroundColor: '#112240', borderWidth: 1, borderColor: '#1E293B', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2}}>
-                <Text style={{color:'#00FFAD', fontSize:10, fontWeight:'900'}}>{item.num}</Text>
+            { num: '01', icon: 'cpu-64-bit',       title: 'Hardware Sensors on Every Box',  sub: 'ESP32 + DHT22 sensors stream temperature & humidity to Firebase every few seconds.' },
+            { num: '02', icon: 'bell-alert',        title: 'Intelligent Breach Detection',   sub: 'Exceeding 8°C triggers an instant alert, fan activation, and PCM mitigation — automatically.' },
+            { num: '03', icon: 'monitor-dashboard', title: 'Live Dashboard for Operators',   sub: 'Mobile app shows unit health, PCM state, battery load, and a full event timeline.' },
+            { num: '04', icon: 'file-chart',        title: 'Automated Audit Reports',        sub: 'One tap generates a compliance-ready PDF with breach stats, risk levels, and custody logs.' },
+          ].map((item, i, arr) => (
+            <View key={i} style={[gs.solRow, { alignItems: 'flex-start', paddingVertical: 14 }, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: C.border }]}>
+              <View style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: C.accentDim, borderWidth: 1, borderColor: C.accent + '30', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2 }}>
+                <Text style={{ color: C.accent, fontSize: 10, fontWeight: '900' }}>{item.num}</Text>
               </View>
-              <View style={{flex:1}}>
-                <Text style={{color:'#FFF', fontSize:13, fontWeight:'800', marginBottom: 4}}>{item.title}</Text>
-                <Text style={{color:'#8892B0', fontSize:12, lineHeight:18}}>{item.sub}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.textPri, fontSize: 13, fontWeight: '800', marginBottom: 4 }}>{item.title}</Text>
+                <Text style={{ color: C.textSec, fontSize: 12, lineHeight: 18 }}>{item.sub}</Text>
               </View>
             </View>
           ))}
         </View>
 
         {/* IMPACT */}
-        <Text style={styles.sectionTitle}>Impact at a Glance</Text>
-        <View style={[styles.challengeRow, {flexWrap:'wrap', gap: 10}]}>
+        <SectionHeader label="Impact at a Glance" />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 12 }}>
           {[
-            {label:'Detection', val:'Real-time\nAlerts',    color:'#00FFAD'},
-            {label:'Response',  val:'Auto\nMitigation',     color:'#4285F4'},
-            {label:'Tracing',   val:'Full Audit\nTrail',    color:'#FFB347'},
-            {label:'Coverage',  val:'Multi-box\nTracking',  color:'#FF6B6B'},
-          ].map((item,i) => (
-            <View key={i} style={[styles.challengeCard, {width:'47%'}]}>
-              <Text style={styles.challengeLabel}>{item.label}</Text>
-              <Text style={[styles.challengeStat, {color: item.color, fontSize: 16, marginVertical: 4}]}>{item.val}</Text>
+            { label: 'Detection', val: 'Real-time\nAlerts',   color: C.accent },
+            { label: 'Response',  val: 'Auto\nMitigation',    color: C.blue },
+            { label: 'Tracing',   val: 'Full Audit\nTrail',   color: C.amber },
+            { label: 'Coverage',  val: 'Multi-box\nTracking', color: C.red },
+          ].map((item, i) => (
+            <View key={i} style={[gs.glassCard, { width: '47%', alignItems: 'center', paddingVertical: 16 }]}>
+              <Text style={[gs.cardLabel, { textAlign: 'center' }]}>{item.label}</Text>
+              <Text style={{ color: item.color, fontSize: 15, fontWeight: '900', marginTop: 6, textAlign: 'center', lineHeight: 22 }}>{item.val}</Text>
             </View>
           ))}
         </View>
 
         {/* VISION */}
-        <Text style={styles.sectionTitle}>Our Vision</Text>
-        <View style={[styles.missionDarkCard, {borderColor: '#4285F430'}]}>
-          <View style={{backgroundColor:'#4285F412', borderWidth:1, borderColor:'#4285F430', borderRadius:6, paddingHorizontal:10, paddingVertical:4, alignSelf:'flex-start', marginBottom:14}}>
-            <Text style={{color:'#4285F4', fontSize:9, fontWeight:'800', letterSpacing:2}}>LONG-TERM IMPACT</Text>
-          </View>
-          <Text style={styles.aboutText}>
-            We envision a future where <Text style={{color:'#FFF', fontWeight:'700'}}>every vaccine, biologic, and temperature-sensitive medicine</Text> reaches its destination with its potency intact — regardless of geography, infrastructure, or logistical complexity.{"\n\n"}
-            ColdSync is not just a monitoring tool. It is <Text style={{color:'#FFF', fontWeight:'700'}}>the trust infrastructure for healthcare logistics</Text> — ensuring that the last mile, often the most vulnerable, is finally as accountable as the first.
+        <SectionHeader label="Our Vision" />
+        <View style={[gs.glassCard, { marginHorizontal: 20, borderColor: C.blue + '30' }]}>
+          <Pill label="LONG-TERM IMPACT" color={C.blue} />
+          <Text style={[gs.bodyText, { marginTop: 14 }]}>
+            We envision a future where <Text style={{ color: C.textPri, fontWeight: '700' }}>every vaccine, biologic, and temperature-sensitive medicine</Text> reaches its destination with its potency intact — regardless of geography, infrastructure, or logistical complexity.{"\n\n"}
+            ColdSync is not just a monitoring tool. It is <Text style={{ color: C.textPri, fontWeight: '700' }}>the trust infrastructure for healthcare logistics</Text> — ensuring that the last mile, often the most vulnerable, is finally as accountable as the first.
           </Text>
         </View>
 
-        <Text style={styles.visionQuote}>
+        <Text style={gs.quote}>
           "Revolutionizing global healthcare through precision cold chain intelligence — built at RVCE, designed for the world."
         </Text>
 
@@ -349,7 +344,6 @@ function MissionScreen() {
     </View>
   );
 }
-   
 
 // ═══════════════════════════════════════════════════════════════
 // HUB SCREEN
