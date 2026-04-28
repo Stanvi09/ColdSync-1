@@ -6,6 +6,8 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+
+    "icon": "./assets/icon.png",
     
     "ios": {
       "supportsTablet": true
@@ -13,7 +15,11 @@
     "android": {
      
       "edgeToEdgeEnabled": true,
-      "package": "com.tanvi.coldsync"
+      "package": "com.tanvi.coldsync",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#000000"
+      }
     },
     "web": {
       "bundler": "metro",
